@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="CMIS.CORE/CMIS.CORE.csproj" />
+  <Project Path="CMIS.WH/CMIS.WH.csproj" />
+  <Project Path="CMIS.PIPE/CMIS.PIPE.csproj" />
+  <Project Path="CMIS/CMIS.csproj" />
+</Solution>
