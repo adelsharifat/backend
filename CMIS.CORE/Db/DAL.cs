@@ -329,4 +329,24 @@ public class DAL
 
     public virtual Task<DataTable> QueryTableAsync(string commandText, params SqlParameter[] parameters) =>
         QueryTableAsync(commandText, CommandType.StoredProcedure, CancellationToken.None, parameters);
+
+    /// <summary>Gets the SQL table type declared for a stored procedure table-valued parameter.</summary>
+    public virtual async Task<string> GetTableParameterTypeAsync(
+        string procedureName,
+        string parameterName,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT SCHEMA_NAME(t.schema_id) + '.' + t.name
+            FROM sys.parameters p
+            INNER JOIN sys.types t ON t.user_type_id = p.user_type_id
+            WHERE p.object_id = OBJECT_ID(@ProcedureName)
+              AND p.name = @ParameterName
+              AND t.is_table_type = 1;
+            """;
+
+        return await QuerySingleAsync(sql, row => row.GetString(0), CommandType.Text, cancellationToken,
+            new SqlParameter("@ProcedureName", SqlDbType.NVarChar, 256) { Value = procedureName },
+            new SqlParameter("@ParameterName", SqlDbType.NVarChar, 128) { Value = parameterName });
+    }
 }

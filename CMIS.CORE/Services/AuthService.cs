@@ -23,8 +23,12 @@ public class AuthService : IAuthService
     }
 
     public async Task<(string? AccessToken, string? RefreshToken, bool Success, string? Error)> SignInAsync(
-        string username, string password, string deviceId, string userAgent)
+        string username, string password, int projectId, string deviceId, string userAgent)
     {
+        // This deployment currently exposes project 1 only. Validate the selection
+        // on the server; a browser-supplied project must never select arbitrary data.
+        if (projectId != 1)
+            return (null, null, false, "The selected project is not available.");
         // 1️⃣ Get user
         UserCredential user;
         try
@@ -34,8 +38,7 @@ public class AuthService : IAuthService
                 r => new UserCredential(
                     int.Parse(r["Id"].ToString()!),
                     (string)r["UserName"],
-                    (string)r["Password"],
-                    String.Empty),
+                    (string)r["Password"]),
                 new SqlParameter("@UserName", SqlDbType.NVarChar, 100) { Value = username });
         }
         catch (InvalidOperationException)
@@ -63,7 +66,7 @@ public class AuthService : IAuthService
         };
         
         // 2️⃣ Create tokens
-        var extraClaims = new[] { new Claim("project", user.DefaultProject) };
+        var extraClaims = new[] { new Claim("project", projectId.ToString()) };
 
         var accessToken = JwtHelper.GenerateAccessToken(user.Id, refreshEntity.Id, extraClaims, _jwtOpts);
 
@@ -123,7 +126,7 @@ public class AuthService : IAuthService
             new SqlParameter("@NewToken", SqlDbType.NVarChar, 200) { Value = newRefresh },
             new SqlParameter("@ExpiresAt", SqlDbType.DateTime2) { Value = newExpires });
 
-        var extraClaims = Array.Empty<Claim>();
+        var extraClaims = new[] { new Claim("project", "1") };
         var newAccess = JwtHelper.GenerateAccessToken(cur.UserId, newId, extraClaims, _jwtOpts);
         return (newAccess, newRefresh, true, null);
     }
@@ -245,6 +248,5 @@ public class AuthService : IAuthService
     private sealed record UserCredential(
         int Id,
         string UserName,
-        string PasswordHash,
-        string DefaultProject);
+        string PasswordHash);
 }

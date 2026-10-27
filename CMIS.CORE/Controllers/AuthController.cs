@@ -25,19 +25,19 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.UserName) || string.IsNullOrWhiteSpace(dto.Password))
+        if (string.IsNullOrWhiteSpace(dto.UserName) || string.IsNullOrWhiteSpace(dto.Password) || dto.ProjectId <= 0)
         {
             return BadRequest(new
             {
                 code = "invalid_request",
-                message = "Username and password are required."
+                message = "Username, password, and a valid project are required."
             });
         }
 
         try
         {
             var deviceId = Request.Cookies["DeviceId"] ?? Guid.NewGuid().ToString("N");
-            var result = await _auth.SignInAsync(dto.UserName, dto.Password, deviceId, Request.Headers["User-Agent"]);
+            var result = await _auth.SignInAsync(dto.UserName, dto.Password, dto.ProjectId, deviceId, Request.Headers["User-Agent"]);
             if (!result.Success)
             {
                 return Unauthorized(new

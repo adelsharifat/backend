@@ -6,7 +6,7 @@ namespace CMIS.Core.Services;
 
 public interface IAuthService
 {
-    Task<(string? AccessToken, string? RefreshToken, bool Success, string? Error)> SignInAsync(string username, string password, string deviceId, string userAgent);
+    Task<(string? AccessToken, string? RefreshToken, bool Success, string? Error)> SignInAsync(string username, string password, int projectId, string deviceId, string userAgent);
     Task SignOutAsync(string refreshToken);
     Task<(string AccessToken, string RefreshToken, bool success, string error)> RefreshAsync(string refreshToken);
     Task<IReadOnlyList<RefreshToken>> GetActiveSessionsAsync(int userId);
