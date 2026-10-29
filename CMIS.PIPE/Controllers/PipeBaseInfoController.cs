@@ -791,7 +791,12 @@ public sealed class PipeBaseInfoController : ControllerBase
             {
                 if (!TryGetProperty(source, column.ColumnName, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
                 {
-                    row[column] = DBNull.Value;
+                    // PIPE.Line.DisableRT is NOT NULL in SQL Server. Existing rows or clients
+                    // may omit this legacy flag, so preserve the database's false/default meaning
+                    // instead of sending DBNull through the table-valued parameter.
+                    row[column] = string.Equals(column.ColumnName, "DisableRT", StringComparison.OrdinalIgnoreCase)
+                        ? false
+                        : DBNull.Value;
                     continue;
                 }
                 row[column] = ConvertJsonValue(value, column.DataType);
