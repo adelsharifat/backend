@@ -264,7 +264,7 @@ public sealed class PipeBaseInfoController : ControllerBase
     [RequireAcl(PipeAcl.LINELIST)]
     public async Task<IActionResult> GetLineListDetails(int id, CancellationToken cancellationToken)
     {
-        if (id <= 0) return BadRequest();
+        if (id <= 0 || !TryGetProjectId(out _)) return BadRequest();
 
         var header = await _dal.QueryTableAsync("PIPE.GetLineList", CommandType.StoredProcedure, cancellationToken,
             new SqlParameter("@Id", SqlDbType.Int) { Value = id });
