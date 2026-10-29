@@ -296,7 +296,7 @@ feature that needs data:
 | 6 | **Uncommitted work**: the ACL port (`CMIS.CORE/Security/Acl/*`, `Security/PermissionService.cs`, `IPermissionService.cs`, `Controllers/AclController.cs`), its DI registration and the `PipeBaseInfoController` refactor (now `[RequireAcl]`-guarded) are untracked or modified — none of it is committed. | git |
 | 7 | **`CMIS.http` is the default template** (wrong port 5215, `/weatherforecast` does not exist). | `CMIS/CMIS.http` |
 | 8 | **No tests, and `.github/` is empty** — no CI. Don't claim a test run that did not happen. | repo root |
-| 9 | `PipeBaseInfoController` is ~720 lines and mixes five grids; split it per area (`PmsThicknessController`, `LineListController`, …) when a sixth grid arrives. | `CMIS.PIPE` |
+| 9 | `PipeBaseInfoController` is ~875 lines and mixes five grids plus the line-list attachment stream (`line-list/{id}/file/{fileId}`); split it per area (`PmsThicknessController`, `LineListController`, …) when a sixth grid arrives. | `CMIS.PIPE` |
 | 10 | `CMIS.WH` only has a health endpoint — the Warehouse module is still a placeholder. | `CMIS.WH` |
 
 ## 11. Definition of done

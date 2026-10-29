@@ -24,8 +24,14 @@ public sealed class PermissionService(DAL dal, AclRegistry registry, IHttpContex
     public Task<AclPermissionSet> GetSetAsync(CancellationToken cancellationToken = default) =>
         _set ??= LoadAsync(cancellationToken);
 
+    /// <inheritdoc />
+    public string Qualify(string permission) =>
+        string.IsNullOrWhiteSpace(permission)
+            ? permission
+            : registry.Find(permission)?.QualifiedName ?? permission.Trim();
+
     public async Task<AclGrant> ResolveAsync(string permission, CancellationToken cancellationToken = default) =>
-        (await GetSetAsync(cancellationToken)).Resolve(permission);
+        (await GetSetAsync(cancellationToken)).Resolve(Qualify(permission));
 
     public async Task<bool> IsAllowedAsync(string permission, CancellationToken cancellationToken = default) =>
         (await ResolveAsync(permission, cancellationToken)).IsGranted();
@@ -38,6 +44,7 @@ public sealed class PermissionService(DAL dal, AclRegistry registry, IHttpContex
 
     public async Task<int[]> GetAllowedItemsAsync(string permission, CancellationToken cancellationToken = default)
     {
+        permission = Qualify(permission);
         if (_allowedItems.TryGetValue(permission, out var cached)) return cached;
 
         var (userId, projectId) = GetIdentity();
@@ -58,6 +65,7 @@ public sealed class PermissionService(DAL dal, AclRegistry registry, IHttpContex
 
     public async Task<int?> GetAllowedItemAsync(string permission, CancellationToken cancellationToken = default)
     {
+        permission = Qualify(permission);
         if (_allowedItem.TryGetValue(permission, out var cached)) return cached;
 
         var (userId, projectId) = GetIdentity();

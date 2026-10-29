@@ -60,6 +60,9 @@ public static class PipeAcl
     [AclPermission("PI103 - Line Batch Update in Line List")]
     public const string LINE_BATCH_UPDATE = "LINE_BATCH_UPDATE";
 
+    [AclPermission("PI038 - Allow to re-Active (un-delete/un-void) line")]
+    public const string RE_ACTIVE_LINE = "RE_ACTIVE_LINE";
+
     [AclPermission("Design Line Lists")]
     public const string DESIGN_LINELIST = "DESIGN_LINELIST";
 

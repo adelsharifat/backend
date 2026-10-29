@@ -81,19 +81,31 @@ public sealed class AclController(IPermissionService permissions, AclRegistry re
     [HttpGet("items/{permission}")]
     public async Task<IActionResult> GetItems(string permission, CancellationToken cancellationToken)
     {
-        if (registry.Find(permission) is not { Kind: AclPermissionKind.Items })
+        var definition = registry.Find(permission);
+        if (definition is not { Kind: AclPermissionKind.Items })
             return NotFound();
 
-        return Ok(new { Permission = permission, Values = await permissions.GetAllowedItemsAsync(permission, cancellationToken) });
+        // The qualified name travels back, so a client that asked with a bare or differently cased
+        // name (`pipe.company`) sees the key the ACL store and the resolver use.
+        return Ok(new
+        {
+            Permission = definition.QualifiedName,
+            Values = await permissions.GetAllowedItemsAsync(definition.QualifiedName, cancellationToken)
+        });
     }
 
     /// <summary>GET api/acl/item/PIPE.SOMETHING — the single selected value (<c>CM.GetAllowedItem</c>).</summary>
     [HttpGet("item/{permission}")]
     public async Task<IActionResult> GetItem(string permission, CancellationToken cancellationToken)
     {
-        if (registry.Find(permission) is not { Kind: AclPermissionKind.Value })
+        var definition = registry.Find(permission);
+        if (definition is not { Kind: AclPermissionKind.Value })
             return NotFound();
 
-        return Ok(new { Permission = permission, Value = await permissions.GetAllowedItemAsync(permission, cancellationToken) });
+        return Ok(new
+        {
+            Permission = definition.QualifiedName,
+            Value = await permissions.GetAllowedItemAsync(definition.QualifiedName, cancellationToken)
+        });
     }
 }

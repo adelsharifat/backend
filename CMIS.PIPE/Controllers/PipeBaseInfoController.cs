@@ -9,7 +9,9 @@ using CMIS.Core.Security.Acl;
 using CMIS.PIPE.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Data.SqlClient;
+using Microsoft.Net.Http.Headers;
 
 namespace CMIS.PIPE.Controllers;
 
@@ -18,6 +20,12 @@ namespace CMIS.PIPE.Controllers;
 [Authorize]
 public sealed class PipeBaseInfoController : ControllerBase
 {
+    /// <summary>
+    /// The type a file is served under, guessed from its extension the way the desktop client's shell
+    /// did when it launched the local copy of a file.
+    /// </summary>
+    private static readonly FileExtensionContentTypeProvider ContentTypes = new();
+
     private readonly DAL _dal;
     private readonly IPermissionService _permissions;
     private readonly AclRegistry _registry;
@@ -36,8 +44,11 @@ public sealed class PipeBaseInfoController : ControllerBase
     /// </summary>
     private async Task<IActionResult?> GuardCompanyAsync(int companyId, CancellationToken cancellationToken)
     {
-        var guard = await _permissions.CheckAllowedItemsAsync(PipeAcl.COMPANY, [companyId], cancellationToken);
-        return guard.Allowed ? null : this.AclItemsDenied(PipeAcl.COMPANY, guard.Denied);
+        // Qualified once, so the check and the `403` message both name `PIPE.COMPANY` — the name the
+        // ACL table stores — instead of the bare constant.
+        var permission = _permissions.Qualify(PipeAcl.COMPANY);
+        var guard = await _permissions.CheckAllowedItemsAsync(permission, [companyId], cancellationToken);
+        return guard.Allowed ? null : this.AclItemsDenied(permission, guard.Denied);
     }
 
     /// <summary>
@@ -151,7 +162,11 @@ public sealed class PipeBaseInfoController : ControllerBase
             testPressureFluids = Values("TestPressureFluid", "", "-", "Water", "Air", "Visual"),
             paintCodes = Values("PaintCode", "", "-", "A", "B", "C", "D", "E", "F"),
             rtLabels = ToRows(rtTask.Result),
-            ndtSpecs = ToRows(ndtTask.Result)
+            ndtSpecs = ToRows(ndtTask.Result),
+            // The `CM.GetConfig` rows themselves (`{ "pipeSize": ["1", ...] }`). The named lists above
+            // are what a combo normally uses; this lets the client resolve a key that has no list of its
+            // own, and fall back to the module bundle's defaults when a key has no row either.
+            config
         });
     }
 
@@ -198,6 +213,142 @@ public sealed class PipeBaseInfoController : ControllerBase
             return row;
         }).ToArray();
         return Ok(new { id = savedId, lines = responseLines });
+    }
+
+    /// <summary>
+    /// The lines of one company — the grid of the module (legacy <c>frmLineListGrid</c> →
+    /// <c>Dal.Get().ListLines(Project.Id, LoginInfo.Id, CompanyId)</c>, the <c>PIPE.ListLines</c>
+    /// procedure).
+    /// </summary>
+    /// <remarks>
+    /// The procedure is the row-level half of the ACL: it filters the lines by the companies the caller
+    /// may see, which is why it takes <c>@UserId</c>. <see cref="GuardCompanyAsync"/> re-checks the
+    /// company id the client sent before the procedure runs, so a value typed into the request by hand
+    /// is a 403 instead of a read of another company's lines.
+    /// </remarks>
+    [HttpGet("line-list/lines")]
+    [RequireAcl(PipeAcl.LINELIST)]
+    public async Task<IActionResult> GetLineListLines([FromQuery] int companyId, CancellationToken cancellationToken)
+    {
+        if (companyId <= 0 || !TryGetProjectId(out var projectId) || !TryGetUserId(out var userId)) return BadRequest();
+
+        if (await GuardCompanyAsync(companyId, cancellationToken) is { } companyGuard) return companyGuard;
+
+        var lines = await _dal.QueryTableAsync("PIPE.ListLines", CommandType.StoredProcedure, cancellationToken,
+            new SqlParameter("@ProjectId", SqlDbType.Int) { Value = projectId },
+            new SqlParameter("@UserId", SqlDbType.Int) { Value = userId },
+            new SqlParameter("@CompanyId", SqlDbType.Int) { Value = companyId });
+        return Ok(ToRows(lines));
+    }
+
+    /// <summary>
+    /// One line list as its form edits it: the header, its lines and its files — the three reads the
+    /// legacy <c>frmLineList.LoadEntity</c> made (<c>PIPE.GetLineList</c>, <c>PIPE.GetLineListLines</c>,
+    /// <c>PIPE.ListLineListFiles</c>), answered in one call because a form needs all three at once.
+    /// </summary>
+    /// <remarks>
+    /// The company of the record comes with the header, and it is what the row-level guard checks: a
+    /// line list of another company is a 403 even when its id is known. A record that is not there is a
+    /// 404, which the client turns into "Line list not found" and closes the tab with (legacy
+    /// <c>EntityNotFoundMessage</c>).
+    /// </remarks>
+    [HttpGet("line-list/{id:int}")]
+    [RequireAcl(PipeAcl.LINELIST)]
+    public async Task<IActionResult> GetLineList(int id, CancellationToken cancellationToken)
+    {
+        if (id <= 0 || !TryGetProjectId(out var projectId)) return BadRequest();
+
+        var header = await _dal.QueryTableAsync("PIPE.GetLineList", CommandType.StoredProcedure, cancellationToken,
+            new SqlParameter("@Id", SqlDbType.Int) { Value = id });
+        if (header.Rows.Count == 0) return NotFound();
+
+        var record = ToRows(header)[0];
+        // The record's company: the row-level guard, and the value the form moves its company combo to.
+        var companyId = record.TryGetValue("companyId", out var company) && company is not null ? Convert.ToInt32(company) : 0;
+        if (companyId > 0 && await GuardCompanyAsync(companyId, cancellationToken) is { } companyGuard) return companyGuard;
+
+        var linesTask = _dal.QueryTableAsync("PIPE.GetLineListLines", CommandType.StoredProcedure, cancellationToken,
+            new SqlParameter("@LineListId", SqlDbType.Int) { Value = id });
+        var filesTask = _dal.QueryTableAsync("PIPE.ListLineListFiles", CommandType.StoredProcedure, cancellationToken,
+            new SqlParameter("@Id", SqlDbType.Int) { Value = id });
+        await Task.WhenAll(linesTask, filesTask);
+
+        // `PIPE.GetLineList` spells the date `RecieveDate` (the legacy name); the form asks for the day it
+        // holds, so the camel-cased column travels under both names.
+        if (record.TryGetValue("recieveDate", out var receiveDate)) record["receiveDate"] = receiveDate;
+        record["projectId"] = projectId;
+        record["lines"] = ToRows(linesTask.Result);
+        record["files"] = ToRows(filesTask.Result);
+        return Ok(record);
+    }
+
+    /// <summary>
+    /// One stored attachment of a line list, as bytes — the route the legacy
+    /// <c>Util.OpenFile(fileTable, streamId)</c> needed and the one the web attachment control had no
+    /// answer for: the row is read out of the SQL file table and streamed, so no server path ever has to
+    /// reach the browser.
+    /// </summary>
+    /// <remarks>
+    /// <c>PIPE.ListLineListFiles</c> answers the file rows of the record (its id, its name, the stream id
+    /// of the bytes and the file table they live in) and <c>CM.GetFileContent</c> is the legacy read of
+    /// the bytes themselves — the same two steps the desktop client made before it wrote its temporary
+    /// copy and launched it.
+    ///
+    /// The answer is <c>inline</c> with the file's own name and type, so a PDF or an image opens in the tab
+    /// and anything else is left to the browser. Saving is the client's business: it already has the same
+    /// bytes, and a `download` parameter would only be a second way to ask for them.
+    ///
+    /// The company guard runs on the record and not on the file id: a file of another company's line list
+    /// is a 403, the way that line list is.
+    /// </remarks>
+    [HttpGet("line-list/{id:int}/file/{fileId:int}")]
+    [RequireAcl(PipeAcl.LINELIST)]
+    public async Task<IActionResult> GetLineListFile(int id, int fileId, CancellationToken cancellationToken)
+    {
+        if (id <= 0 || fileId <= 0) return BadRequest();
+
+        // The record and its company, read exactly as `GetLineList` reads them: a file is only reachable
+        // through a record the caller may see.
+        var header = await _dal.QueryTableAsync("PIPE.GetLineList", CommandType.StoredProcedure, cancellationToken,
+            new SqlParameter("@Id", SqlDbType.Int) { Value = id });
+        if (header.Rows.Count == 0) return NotFound();
+
+        var record = ToRows(header)[0];
+        var companyId = record.TryGetValue("companyId", out var company) && company is not null ? Convert.ToInt32(company) : 0;
+        if (companyId > 0 && await GuardCompanyAsync(companyId, cancellationToken) is { } companyGuard) return companyGuard;
+
+        // The file row of this record. The procedure already drops the deleted rows, so an id that is not
+        // in the answer is either another record's file or a file that is gone: both are a 404.
+        var files = ToRows(await _dal.QueryTableAsync("PIPE.ListLineListFiles", CommandType.StoredProcedure, cancellationToken,
+            new SqlParameter("@Id", SqlDbType.Int) { Value = id }));
+        var file = files.FirstOrDefault(row => row.TryGetValue("id", out var rowId) && Convert.ToInt32(rowId) == fileId);
+        if (file is null) return NotFound();
+
+        var fileTable = file.TryGetValue("fileTableName", out var table) ? Convert.ToString(table) : null;
+        var streamId = file.TryGetValue("filePath", out var stream) && stream is Guid value ? value : Guid.Empty;
+        if (string.IsNullOrWhiteSpace(fileTable) || streamId == Guid.Empty) return NotFound();
+
+        var content = await _dal.QueryTableAsync("CM.GetFileContent", CommandType.StoredProcedure, cancellationToken,
+            new SqlParameter("@FileTable", SqlDbType.VarChar, 200) { Value = fileTable },
+            new SqlParameter("@StreamId", SqlDbType.UniqueIdentifier) { Value = streamId });
+        if (content.Rows.Count == 0) return NotFound();
+
+        if (content.Rows[0]["file_stream"] is not byte[] bytes || bytes.Length == 0) return NotFound();
+
+        // The name of the file row, not the name stored in the table: an attachment renamed on the form is
+        // the name the operator expects to see on the download.
+        var fileName = Convert.ToString(file.TryGetValue("name", out var name) ? name : null);
+        if (string.IsNullOrWhiteSpace(fileName)) fileName = Convert.ToString(content.Rows[0]["name"]);
+        if (string.IsNullOrWhiteSpace(fileName)) fileName = "attachment";
+
+        var contentType = ContentTypes.TryGetContentType(fileName, out var known) ? known : "application/octet-stream";
+        // `SetHttpFileName` writes both the ASCII `filename` and the UTF-8 `filename*`, so a file named in
+        // Persian or Russian survives the header.
+        var disposition = new ContentDispositionHeaderValue("inline");
+        disposition.SetHttpFileName(fileName);
+        Response.Headers.ContentDisposition = disposition.ToString();
+
+        return File(bytes, contentType, enableRangeProcessing: true);
     }
 
     [HttpGet("contractor-estimates")]
@@ -355,109 +506,80 @@ public sealed class PipeBaseInfoController : ControllerBase
     }
 
     [HttpGet("locations")]
-    public async Task<ActionResult<IReadOnlyList<LocationRow>>> GetLocations(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetLocations(CancellationToken cancellationToken)
     {
         if (!TryGetProjectId(out var projectId)) return Unauthorized();
 
         var table = await _dal.QueryTableAsync("PIPE.GetLocations", CommandType.StoredProcedure, cancellationToken,
             new SqlParameter("@ProjectId", SqlDbType.Int) { Value = projectId });
 
-        return Ok(table.Rows.Cast<DataRow>()
-            .Select(row => new LocationRow(Convert.ToString(row["Location"]) ?? string.Empty, Convert.ToInt32(row["Priority"]))));
+        return Ok(ToRows(table));
     }
 
     [HttpPut("locations")]
-    public async Task<IActionResult> SaveLocations(
-        [FromBody] IReadOnlyList<LocationRow> rows,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> SaveLocations([FromBody] JsonElement rows, CancellationToken cancellationToken)
     {
         if (!TryGetProjectId(out var projectId) || !TryGetUserId(out var userId)) return Unauthorized();
 
-        var locations = new DataTable();
-        locations.Columns.Add("Location", typeof(string));
-        locations.Columns.Add("Priority", typeof(int));
-        foreach (var row in rows)
-        {
-            if (string.IsNullOrWhiteSpace(row.Location))
-                return BadRequest(new { message = "Each location needs a name." });
-
-            locations.Rows.Add(row.Location.Trim(), row.Priority);
-        }
-
+        // The table parameter is the type the procedure declares, read from `sys.table_types`: the shape
+        // of a row is the database's, so a column added to the type needs no edit here.
         var typeName = await _dal.GetTableParameterTypeAsync("PIPE.SaveLocations", "@Locations", cancellationToken);
-        var locationsParameter = StructuredParameter("@Locations", typeName, locations);
+        var locations = await CreateTypedTableAsync(typeName, rows, cancellationToken);
+
+        foreach (DataRow row in locations.Rows)
+        {
+            var name = Convert.ToString(row["Location"]);
+            if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { message = "Each location needs a name." });
+            row["Location"] = name.Trim();
+        }
 
         await _dal.ExecuteAsync("PIPE.SaveLocations", CommandType.StoredProcedure, cancellationToken,
             new SqlParameter("@ProjectId", SqlDbType.Int) { Value = projectId },
             new SqlParameter("@UserId", SqlDbType.Int) { Value = userId },
-            locationsParameter);
+            StructuredParameter("@Locations", typeName, locations));
 
         return NoContent();
     }
 
     [HttpGet("pms-thickness")]
     [RequireAcl(PipeAcl.PMS_THK)]
-    public async Task<ActionResult<PmsThicknessData>> GetPmsThickness(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPmsThickness(CancellationToken cancellationToken)
     {
         if (!TryGetProjectId(out var projectId) || !TryGetUserId(out _)) return Unauthorized();
 
         var table = await _dal.QueryTableAsync("PIPE.GetPMSThkGrid", CommandType.StoredProcedure, cancellationToken,
             new SqlParameter("@ProjectId", SqlDbType.Int) { Value = projectId });
 
-        var rows = table.Rows.Cast<DataRow>().Select(row => new PmsThicknessRow(
-            Id: Convert.ToInt32(row["Id"]),
-            PipeClass: Convert.ToString(row["PipeClass"]) ?? string.Empty,
-            Size: Convert.ToDecimal(row["Size"]),
-            Thk: row.IsNull("Thk") ? null : Convert.ToDecimal(row["Thk"]),
-            Mat: NullIfDbNull(row["Mat"]),
-            MainMat: NullIfDbNull(row["MainMat"]),
-            PWHT: NullIfDbNull(row["PWHT"]),
-            Sch: NullIfDbNull(row["Sch"]),
-            InvoiceMaterial: NullIfDbNull(row["InvoiceMaterial"]),
-            InvoiceSchedule: NullIfDbNull(row["InvoiceSchedule"]),
-            Modified: !row.IsNull("Modified") && Convert.ToBoolean(row["Modified"]))).ToArray();
         var pwhtValues = await GetPwhtValues(projectId, cancellationToken);
 
         // The screen shows the grid to everyone allowed to read it, but only unlocks editing
         // with PMS_THK_EDIT. This is the "Deny = visible but disabled" state of the client ACL,
         // not a permission check: the write endpoints are guarded on the server.
         var canEdit = await _permissions.IsAllowedAsync(PipeAcl.PMS_THK_EDIT, cancellationToken);
-        return Ok(new PmsThicknessData(rows, pwhtValues, canEdit));
+
+        // The rows are the table of the procedure (`ToRows`, no record declared for them); the two flags
+        // are what the screen needs besides them.
+        return Ok(new { rows = ToRows(table), pwhtValues, canEdit });
     }
 
     [HttpPut("pms-thickness")]
     [RequireAcl(PipeAcl.PMS_THK_EDIT)]
-    public async Task<IActionResult> SavePmsThickness(
-        [FromBody] IReadOnlyList<PmsThicknessRow> rows,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> SavePmsThickness([FromBody] JsonElement rows, CancellationToken cancellationToken)
     {
         if (!TryGetProjectId(out var projectId) || !TryGetUserId(out var userId)) return Unauthorized();
 
+        // The type does not restrict this column, so the value is checked here: a PWHT that is not one of
+        // the configured ones is rejected before the rows become a table parameter.
         var allowedPwht = await GetPwhtValues(projectId, cancellationToken);
-        if (rows.Any(row => !string.IsNullOrWhiteSpace(row.PWHT) && !allowedPwht.Contains(row.PWHT, StringComparer.Ordinal)))
+        if (rows.ValueKind == JsonValueKind.Array && rows.EnumerateArray().Any(row =>
+                TryGetProperty(row, "PWHT", out var pwht) && pwht.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(pwht.GetString()) &&
+                !allowedPwht.Contains(pwht.GetString()!, StringComparer.Ordinal)))
             return BadRequest(new { message = "PWHT must be one of the configured project values." });
 
-        var items = new DataTable();
-        items.Columns.Add("Id", typeof(int));
-        items.Columns.Add("PipeClass", typeof(string));
-        items.Columns.Add("Size", typeof(decimal));
-        items.Columns.Add("Thk", typeof(decimal));
-        items.Columns.Add("Mat", typeof(string));
-        items.Columns.Add("MainMat", typeof(string));
-        items.Columns.Add("PWHT", typeof(string));
-        items.Columns.Add("Sch", typeof(string));
-        items.Columns.Add("InvoiceMaterial", typeof(string));
-        items.Columns.Add("InvoiceSchedule", typeof(string));
-        items.Columns.Add("Modified", typeof(bool));
-
-        foreach (var row in rows)
-            items.Rows.Add(row.Id, row.PipeClass, row.Size, row.Thk ?? (object)DBNull.Value,
-                row.Mat ?? (object)DBNull.Value, row.MainMat ?? (object)DBNull.Value,
-                row.PWHT ?? (object)DBNull.Value, row.Sch ?? (object)DBNull.Value,
-                row.InvoiceMaterial ?? (object)DBNull.Value, row.InvoiceSchedule ?? (object)DBNull.Value,
-                row.Modified);
-
         var typeName = await _dal.GetTableParameterTypeAsync("PIPE.SavePMSThk", "@Items", cancellationToken);
+        var items = await CreateTypedTableAsync(typeName, rows, cancellationToken);
+
         await _dal.ExecuteAsync("PIPE.SavePMSThk", CommandType.StoredProcedure, cancellationToken,
             new SqlParameter("@ProjectId", SqlDbType.Int) { Value = projectId },
             new SqlParameter("@UserId", SqlDbType.Int) { Value = userId },
@@ -589,23 +711,20 @@ public sealed class PipeBaseInfoController : ControllerBase
         var table = await _dal.QueryTableAsync("PIPE.GetMaterialDetails", CommandType.StoredProcedure, cancellationToken,
             new SqlParameter("@UserId", SqlDbType.Int) { Value = userId },
             new SqlParameter("@ProjectId", SqlDbType.Int) { Value = projectId });
-        return Ok(table.Rows.Cast<DataRow>().Select(row => new MaterialDetailRow(
-            Id: Convert.ToInt32(row["MaterialId"]),
-            SurfaceAreaPipingM2: ReadDecimal(row, "SurfaceAreaPiping(M2 )"),
-            InstalLengthPipingMt: ReadDecimal(row, "InstalLengthPiping(mt)"),
-            MatCladding: NullIfDbNull(row["MatCladding"]))));
+        return Ok(ToRows(table));
     }
 
+    /// <remarks>
+    /// The rows of the grid carry the id as the read calls it (`MaterialId` → `materialId`), while the
+    /// type of the save declares that same column as `Id`: the screen sends it under the name the type
+    /// uses, and only the rows it touched (`modified`), which is not a column of the type.
+    /// </remarks>
     [HttpPut("material-details")]
-    public async Task<IActionResult> SaveMaterialDetails([FromBody] IReadOnlyList<MaterialDetailRow> rows, CancellationToken cancellationToken)
+    public async Task<IActionResult> SaveMaterialDetails([FromBody] JsonElement rows, CancellationToken cancellationToken)
     {
         if (!TryGetProjectId(out var projectId) || !TryGetUserId(out var userId)) return Unauthorized();
-        var items = CreateTable(("Id", typeof(int)), ("SurfaceAreaPiping(M2 )", typeof(decimal)),
-            ("InstalLengthPiping(mt)", typeof(decimal)), ("MatCladding", typeof(string)));
-        foreach (var row in rows.Where(row => row.Modified))
-            items.Rows.Add(row.Id, row.SurfaceAreaPipingM2 ?? (object)DBNull.Value,
-                row.InstalLengthPipingMt ?? (object)DBNull.Value, row.MatCladding ?? (object)DBNull.Value);
         var typeName = await _dal.GetTableParameterTypeAsync("PIPE.SaveMaterialDetails", "@Items", cancellationToken);
+        var items = await CreateTypedTableAsync(typeName, rows, cancellationToken, only: "Modified");
         await _dal.ExecuteAsync("PIPE.SaveMaterialDetails", CommandType.StoredProcedure, cancellationToken,
             new SqlParameter("@UserId", SqlDbType.Int) { Value = userId },
             new SqlParameter("@ProjectId", SqlDbType.Int) { Value = projectId },
@@ -639,7 +758,7 @@ public sealed class PipeBaseInfoController : ControllerBase
         Value = value
     };
 
-    private async Task<DataTable> CreateTypedTableAsync(string typeName, JsonElement rows, CancellationToken cancellationToken)
+    private async Task<DataTable> CreateTypedTableAsync(string typeName, JsonElement rows, CancellationToken cancellationToken, string? only = null)
     {
         var parts = typeName.Split('.', 2);
         if (parts.Length != 2) throw new InvalidOperationException($"Invalid table type name: {typeName}");
@@ -664,6 +783,9 @@ public sealed class PipeBaseInfoController : ControllerBase
         if (rows.ValueKind != JsonValueKind.Array) return table;
         foreach (var source in rows.EnumerateArray())
         {
+            // `only` is the `Modified` flag of an editable grid: a save sends the rows the user touched.
+            if (only is not null && (!TryGetProperty(source, only, out var flag) || flag.ValueKind != JsonValueKind.True)) continue;
+
             var row = table.NewRow();
             foreach (DataColumn column in table.Columns)
             {
@@ -696,9 +818,6 @@ public sealed class PipeBaseInfoController : ControllerBase
         if (targetType == typeof(byte[])) return value.GetBytesFromBase64();
         return Convert.ChangeType(value.ToString(), targetType, System.Globalization.CultureInfo.InvariantCulture);
     }
-
-    private static string? NullIfDbNull(object value) => value is DBNull ? null : Convert.ToString(value);
-    private static decimal? ReadDecimal(DataRow row, string column) => row.IsNull(column) ? null : Convert.ToDecimal(row[column]);
 
     private static DataTable CreateTable(params (string Name, Type Type)[] columns)
     {
@@ -743,33 +862,6 @@ public sealed class PipeBaseInfoController : ControllerBase
             column => JsonNamingPolicy.CamelCase.ConvertName(column.ColumnName),
             column => row.IsNull(column) ? null : row[column], StringComparer.OrdinalIgnoreCase)).ToArray();
 }
-
-public sealed record LocationRow(string Location, int Priority);
-
-public sealed record PmsThicknessRow(
-    int Id,
-    string PipeClass,
-    decimal Size,
-    decimal? Thk,
-    string? Mat,
-    string? MainMat,
-    string? PWHT,
-    string? Sch,
-    string? InvoiceMaterial,
-    string? InvoiceSchedule,
-    bool Modified);
-
-public sealed record PmsThicknessData(
-    IReadOnlyList<PmsThicknessRow> Rows,
-    IReadOnlyList<string> PwhtValues,
-    bool CanEdit);
-
-public sealed record MaterialDetailRow(
-    int Id,
-    decimal? SurfaceAreaPipingM2,
-    decimal? InstalLengthPipingMt,
-    string? MatCladding,
-    bool Modified = false);
 
 public sealed record LineListSaveRequest(
     int? Id,

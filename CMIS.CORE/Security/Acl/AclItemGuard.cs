@@ -57,11 +57,16 @@ public static class AclItemGuard
         var requested = (ids ?? Array.Empty<int>()).Where(id => id > 0).Distinct().ToArray();
         if (requested.Length == 0) return Result.Ok;
 
+        // The set resolves by qualified name: a module constant such as `PipeAcl.COMPANY` ("COMPANY")
+        // would otherwise be a Deny for a user who is allowed `PIPE.COMPANY`, because a name without
+        // a dot has no module wildcard to fall back to.
+        var name = permissions.Qualify(permission);
+
         var set = await permissions.GetSetAsync(cancellationToken);
         // Deny and Hide both allow nothing, and the item rows are not even read.
-        if (!set.IsAllowed(permission)) return new Result(false, requested);
+        if (!set.IsAllowed(name)) return new Result(false, requested);
 
-        var allowed = await permissions.GetAllowedItemsAsync(permission, cancellationToken);
+        var allowed = await permissions.GetAllowedItemsAsync(name, cancellationToken);
         var denied = requested.Where(id => !allowed.Contains(id)).ToArray();
 
         return denied.Length == 0 ? Result.Ok : new Result(false, denied);

@@ -17,6 +17,20 @@ public interface IPermissionService
     /// <summary>Grants of the current user, already filtered by the current project.</summary>
     Task<AclPermissionSet> GetSetAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The name the ACL table and the grant set are keyed by: <c>PIPE.COMPANY</c> for the module
+    /// constant <c>PipeAcl.COMPANY</c> (<c>"COMPANY"</c>).
+    /// </summary>
+    /// <remarks>
+    /// A bare name is what module code naturally holds, but <see cref="AclPermissionSet"/> resolves
+    /// by qualified name — and a name without a dot has no module wildcard either, so resolving
+    /// <c>"COMPANY"</c> as-is answers <c>Deny</c> for a user who is allowed <c>PIPE.COMPANY</c>.
+    /// Callers that hand a permission straight to the set (or to
+    /// <c>CM.GetAllowedItems</c>) must qualify it first; this returns the input unchanged when the
+    /// name is not declared, so an unknown permission still resolves to deny.
+    /// </remarks>
+    string Qualify(string permission);
+
     /// <summary>Allow / Deny / Hide / Inherit-resolved grant for one permission.</summary>
     Task<AclGrant> ResolveAsync(string permission, CancellationToken cancellationToken = default);
 
