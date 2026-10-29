@@ -241,17 +241,6 @@ public sealed class PipeBaseInfoController : ControllerBase
         return Ok(ToRows(lines));
     }
 
-    /// <summary>
-    /// One line list as its form edits it: the header, its lines and its files — the three reads the
-    /// legacy <c>frmLineList.LoadEntity</c> made (<c>PIPE.GetLineList</c>, <c>PIPE.GetLineListLines</c>,
-    /// <c>PIPE.ListLineListFiles</c>), answered in one call because a form needs all three at once.
-    /// </summary>
-    /// <remarks>
-    /// The company of the record comes with the header, and it is what the row-level guard checks: a
-    /// line list of another company is a 403 even when its id is known. A record that is not there is a
-    /// 404, which the client turns into "Line list not found" and closes the tab with (legacy
-    /// <c>EntityNotFoundMessage</c>).
-    /// </remarks>
     [HttpGet("line-list/{id:int}")]
     [RequireAcl(PipeAcl.LINELIST)]
     public async Task<IActionResult> GetLineList(int id, CancellationToken cancellationToken)
@@ -263,7 +252,25 @@ public sealed class PipeBaseInfoController : ControllerBase
         if (header.Rows.Count == 0) return NotFound();
 
         var record = ToRows(header)[0];
-        // The record's company: the row-level guard, and the value the form moves its company combo to.
+        var companyId = record.TryGetValue("companyId", out var company) && company is not null ? Convert.ToInt32(company) : 0;
+        if (companyId > 0 && await GuardCompanyAsync(companyId, cancellationToken) is { } companyGuard) return companyGuard;
+
+        if (record.TryGetValue("recieveDate", out var receiveDate)) record["receiveDate"] = receiveDate;
+        record["projectId"] = projectId;
+        return Ok(record);
+    }
+
+    [HttpGet("line-list/{id:int}/details")]
+    [RequireAcl(PipeAcl.LINELIST)]
+    public async Task<IActionResult> GetLineListDetails(int id, CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest();
+
+        var header = await _dal.QueryTableAsync("PIPE.GetLineList", CommandType.StoredProcedure, cancellationToken,
+            new SqlParameter("@Id", SqlDbType.Int) { Value = id });
+        if (header.Rows.Count == 0) return NotFound();
+
+        var record = ToRows(header)[0];
         var companyId = record.TryGetValue("companyId", out var company) && company is not null ? Convert.ToInt32(company) : 0;
         if (companyId > 0 && await GuardCompanyAsync(companyId, cancellationToken) is { } companyGuard) return companyGuard;
 
@@ -273,13 +280,15 @@ public sealed class PipeBaseInfoController : ControllerBase
             new SqlParameter("@Id", SqlDbType.Int) { Value = id });
         await Task.WhenAll(linesTask, filesTask);
 
-        // `PIPE.GetLineList` spells the date `RecieveDate` (the legacy name); the form asks for the day it
-        // holds, so the camel-cased column travels under both names.
-        if (record.TryGetValue("recieveDate", out var receiveDate)) record["receiveDate"] = receiveDate;
-        record["projectId"] = projectId;
-        record["lines"] = ToRows(linesTask.Result);
-        record["files"] = ToRows(filesTask.Result);
-        return Ok(record);
+        return Ok(new
+        {
+            lines = ToRows(linesTask.Result).Select(row =>
+            {
+                row["rowKey"] = row.TryGetValue("id", out var rowId) && rowId is not null ? Convert.ToString(rowId)! : Guid.NewGuid().ToString();
+                return row;
+            }).ToArray(),
+            files = ToRows(filesTask.Result)
+        });
     }
 
     /// <summary>
