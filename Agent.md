@@ -16,6 +16,10 @@ there, and `…\web\CMIS\cmis.code-workspace`, which opens both repos in one win
 
 ---
 
+## Branch policy
+
+Work directly on `master` in this repository. Do not create, switch to, or continue feature/integration branches unless Adel explicitly asks for a branch. Before editing, fetch the latest `master`; commit changes to `master` and verify them there.
+
 ## 1. What this is
 
 A **Construction Management Information System (CMIS)** API: authentication, session management
