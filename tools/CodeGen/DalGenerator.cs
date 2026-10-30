@@ -241,7 +241,7 @@ internal static class DalGenerator
         sb.AppendLine($"        return new {className}Response");
         sb.AppendLine("        {");
         foreach (var p in outputs)
-            sb.AppendLine($"            {Identifier(p.Name)} = parameters.First(p => p.ParameterName == {Literal("@" + p.Name)}).Value is DBNull ? default : ({ParameterClr(p)})Convert.ChangeType(parameters.First(p => p.ParameterName == {Literal("@" + p.Name)}).Value, typeof({ClrBase(p.SqlType)}), CultureInfo.InvariantCulture),");
+            sb.AppendLine($"            {Identifier(p.Name)} = parameters.First(p => p.ParameterName == {Literal("@" + p.Name)}).Value is DBNull ? default : ({ParameterClr(p)})parameters.First(p => p.ParameterName == {Literal("@" + p.Name)}).Value,");
         sb.AppendLine("        };");
         sb.AppendLine("    }");
         sb.AppendLine("}");
