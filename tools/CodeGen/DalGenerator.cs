@@ -172,7 +172,6 @@ internal static class DalGenerator
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using System.Data;");
-        sb.AppendLine("using System.Globalization;");
         sb.AppendLine("using System.Linq;");
         sb.AppendLine("using System.Threading;");
         sb.AppendLine("using System.Threading.Tasks;");
