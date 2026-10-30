@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 
@@ -182,7 +183,7 @@ internal static class CmisCli
                     return 2;
             }
         }
-        catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException or PlatformNotSupportedException or ArgumentException)
+        catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException or PlatformNotSupportedException or ArgumentException or InvalidOperationException)
         {
             Console.Error.WriteLine($"Connection command failed ({ex.GetType().Name}). Check the input and local file permissions.");
             return 1;
