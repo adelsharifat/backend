@@ -309,40 +309,6 @@ public sealed class PipeController : ControllerBase
     }
 
     /// <summary>
-    /// The lines and attachments of one line list, separated from its header for the CUForm
-    /// document lifecycle. The record is still loaded first so the company ACL is enforced.
-    /// </summary>
-    [HttpGet("base-info/line-list/{id:int}/details")]
-    [RequireAcl(PipeAcl.LINELIST)]
-    public async Task<IActionResult> GetLineListDetails(int id, CancellationToken cancellationToken)
-    {
-        if (id <= 0 || !TryGetProjectId(out _)) return BadRequest();
-
-        var header = await _dal.QueryTableAsync("PIPE.GetLineList", CommandType.StoredProcedure, cancellationToken,
-            new SqlParameter("@Id", SqlDbType.Int) { Value = id });
-        if (header.Rows.Count == 0) return NotFound();
-
-        var record = ToRows(header)[0];
-        var companyId = record.TryGetValue("companyId", out var company) && company is not null
-            ? Convert.ToInt32(company)
-            : 0;
-        if (companyId > 0 && await GuardCompanyAsync(companyId, cancellationToken) is { } companyGuard)
-            return companyGuard;
-
-        var linesTask = _dal.QueryTableAsync("PIPE.GetLineListLines", CommandType.StoredProcedure, cancellationToken,
-            new SqlParameter("@LineListId", SqlDbType.Int) { Value = id });
-        var filesTask = _dal.QueryTableAsync("PIPE.ListLineListFiles", CommandType.StoredProcedure, cancellationToken,
-            new SqlParameter("@Id", SqlDbType.Int) { Value = id });
-        await Task.WhenAll(linesTask, filesTask);
-
-        return Ok(new
-        {
-            lines = ToRows(linesTask.Result),
-            files = ToRows(filesTask.Result)
-        });
-    }
-
-    /// <summary>
     /// One stored attachment of a line list, as bytes — the route the legacy
     /// <c>Util.OpenFile(fileTable, streamId)</c> needed and the one the web attachment control had no
     /// answer for: the row is read out of the SQL file table and streamed, so no server path ever has to
