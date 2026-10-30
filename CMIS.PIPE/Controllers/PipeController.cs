@@ -11,6 +11,7 @@ using CMIS.PIPE.Data;
 using CMIS.PIPE.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Data.SqlClient;
 using Microsoft.Net.Http.Headers;
@@ -191,7 +192,7 @@ public sealed class PipeController : ControllerBase
         [FromBody] SaveLineListRequest request,
         CancellationToken cancellationToken)
     {
-        if (companyId <= 0 || request.UnitId is not > 0 ||
+        if (companyId <= 0 || request.UnitId is not > 0 || request.Lines is null || request.Files is null ||
             string.IsNullOrWhiteSpace(request.RefNo) || string.IsNullOrWhiteSpace(request.RevNo) ||
             !TryGetProjectId(out var projectId) || !TryGetUserId(out var userId))
             return BadRequest();
