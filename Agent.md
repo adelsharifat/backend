@@ -328,7 +328,7 @@ permission denies. If the change is visible in the UI, verify it in the client a
 | Session revocation + realtime | `CMIS.CORE/Hubs/SessionHub.cs`, `Controllers/UserController.cs` |
 | Per-request session check | `CMIS.CORE/Security/SessionValidationMiddleware.cs` |
 | Error shape | `CMIS.CORE/Middleware/ApiExceptionMiddleware.cs`, `Models/ApiError.cs` |
-| Data access | `CMIS.CORE/Db/DAL.cs`, `CMIS.CORE/Db/DataTableExtensions.cs` |
+| Data access | `CMIS.CORE/Db/DAL.cs`, `CMIS.CORE/Db/Utils.cs` |
 | Permissions / `@Acl` | §7, `CMIS.CORE/Security/Acl/*`, `Controllers/AclController.cs` |
 | Row-level guard of a submitted id | `CMIS.CORE/Security/Acl/AclItemGuard.cs` (§7), `PipeBaseInfoController.GuardCompanyAsync` |
 | A real business module to copy | `CMIS.PIPE/*` |
