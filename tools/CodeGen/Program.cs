@@ -183,9 +183,9 @@ internal static class Generator
     };
 
     private static void Help() => Console.WriteLine("""
-        CodeGen - generate strongly typed C# contracts and DataTable mappers from SQL Server TVPs.
-        Usage: cmis-codegen --connection-string "<connection string>" [--schema PIPE] [--type LinesType]
-                           [--namespace CMIS.Generated.Tvp] [--output Generated/TvpContracts.g.cs]
+        CMIS CLI - generate strongly typed C# contracts and DataTable mappers from SQL Server TVPs.
+        Usage: cmis generate tvp [--connection-string "<connection string>"] [--schema PIPE] [--type LinesType]
+                                 [--namespace CMIS.Generated.Tvp] [--output Generated/TvpContracts.g.cs]
         Connection string can instead be set with CMIS_CODEGEN_CONNECTION_STRING.
         """);
 
