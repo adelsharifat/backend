@@ -86,7 +86,7 @@ internal static class Generator
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Generation failed: {ex.Message}");
+            Console.Error.WriteLine($"Generation failed ({ex.GetType().Name}). Check the SQL connection, metadata permissions, and generator options.");
             return 1;
         }
     }
