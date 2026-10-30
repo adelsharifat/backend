@@ -254,10 +254,11 @@ Conventions:
 - **TVP saves** are the house style for bulk writes. DAL methods live in a module-specific
   partial class (`PipeDal`, `QcpipeDal`, …): keep its constructor and `DAL` dependency in the
   handwritten `<Module>Dal.cs`; CodeGen emits one `<Procedure>.g.cs` partial per procedure.
-  Generated methods build the `DataTable` schema from SQL TVP metadata, then call
-  `table_Items.CopyFrom(request.Items)`. The shared `DataTableExtensions.CopyFrom<T>` in
-  `CMIS.CORE/Db` maps public model properties (including `[Column]` names) to SQL columns and
-  converts nulls to `DBNull.Value`. Always set `SqlParameter.TypeName` from SQL metadata.
+  Generated methods call `Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")` for each
+  TVP. The shared static utility in `CMIS.CORE/Db/Utils.cs` creates the DataTable schema from the
+  generated row contract (including `[Column]` names, CLR types and nullability), then copies
+  model values into rows and converts nulls to `DBNull.Value`. Always set
+  `SqlParameter.TypeName` from SQL metadata.
   `PipeBaseInfoController`'s `ToRows`, `NullIfDbNull`, and `ReadDecimal` helpers remain useful
   for response mapping; do not duplicate TVP input-mapping logic in each generated method.
 - **`ExecuteInTransactionAsync<T>` is hand-rolled** (`BeginTransaction` + commit/rollback in a
