@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Reflection;
 
@@ -9,7 +8,6 @@ public static class Utils
 {
     /// <summary>
     /// Creates a DataTable whose columns follow the public properties of <typeparamref name="T"/>.
-    /// SQL column names are read from <see cref="ColumnAttribute"/> when present.
     /// </summary>
     public static DataTable ModelToDataTable<T>(IEnumerable<T> models, string? tableName = null)
     {
@@ -29,9 +27,7 @@ public static class Utils
 
         foreach (var property in properties)
         {
-            var columnName = property.GetCustomAttribute<ColumnAttribute>()?.Name;
-            if (string.IsNullOrWhiteSpace(columnName))
-                columnName = property.Name;
+            var columnName = property.Name;
 
             var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
             var allowDBNull = property.PropertyType.IsValueType
