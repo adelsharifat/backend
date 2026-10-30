@@ -259,7 +259,7 @@ Conventions:
   multiple procedures can share the same model. Generated methods call
   `Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")` for each TVP. The shared static
   utility in `CMIS.CORE/Db/Utils.cs` creates the DataTable schema from the generated row contract
-  (including `[Column]` names, CLR types and nullability), then copies model values into rows and
+  (using property names, CLR types and nullability), then copies model values into rows and
   converts nulls to `DBNull.Value`. Always set `SqlParameter.TypeName` from SQL metadata.
   `PipeBaseInfoController`'s `ToRows`, `NullIfDbNull`, and `ReadDecimal` helpers remain useful
   for response mapping; do not duplicate TVP input-mapping logic in each generated method.
