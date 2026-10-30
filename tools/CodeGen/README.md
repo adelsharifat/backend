@@ -110,7 +110,8 @@ The DAL generator reads procedure parameters and TVP column metadata from SQL Se
 
 ```powershell
 cmis generate dal SaveFitup
-cmis generate dal SaveFitup --module QCPIPE\ncmis generate dal PIPE.SaveLineList --output CMIS.PIPE/Data/SaveLineList.g.cs
+cmis generate dal SaveFitup --module QCPIPE
+cmis generate dal PIPE.SaveLineList --output CMIS.PIPE/Data/SaveLineList.g.cs
 ```
 
 TVP row contracts are emitted alongside the procedure contract so the generated file is self-contained. The standalone TVP generator remains independently callable for generating shared TVP contracts. SQL Server does not expose reliable result-set schemas through `sys.parameters`; result-set DTOs therefore require an explicit contract and are not guessed.
