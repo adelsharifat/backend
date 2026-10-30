@@ -252,13 +252,15 @@ Conventions:
 - **Stored procedures only.** The single `CommandType.Text` query in the repo is the metadata
   lookup inside `GetTableParameterTypeAsync`. Schema prefixes: `CM.*`, `PIPE.*`, `QCPIPE.*`.
 - **TVP saves** are the house style for bulk writes. DAL methods live in a module-specific
-  partial class (`PipeDal`, `QcpipeDal`, …): keep its constructor and `DAL` dependency in the
-  handwritten `<Module>Dal.cs`; CodeGen emits one `<Procedure>.g.cs` partial per procedure.
-  Generated methods call `Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")` for each
-  TVP. The shared static utility in `CMIS.CORE/Db/Utils.cs` creates the DataTable schema from the
-  generated row contract (including `[Column]` names, CLR types and nullability), then copies
-  model values into rows and converts nulls to `DBNull.Value`. Always set
-  `SqlParameter.TypeName` from SQL metadata.
+  partial class (`PipeDal`, `QcpipeDal`, …): CodeGen emits the module class file
+  (`<Module>Dal.g.cs`) with its `DAL` dependency and constructor, plus one procedure file under
+  `Data/`. Request, response, and reusable TVP row contracts are emitted under `Models/`.
+  TVP row model names are based on the SQL schema and table-type name, not the procedure, so
+  multiple procedures can share the same model. Generated methods call
+  `Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")` for each TVP. The shared static
+  utility in `CMIS.CORE/Db/Utils.cs` creates the DataTable schema from the generated row contract
+  (including `[Column]` names, CLR types and nullability), then copies model values into rows and
+  converts nulls to `DBNull.Value`. Always set `SqlParameter.TypeName` from SQL metadata.
   `PipeBaseInfoController`'s `ToRows`, `NullIfDbNull`, and `ReadDecimal` helpers remain useful
   for response mapping; do not duplicate TVP input-mapping logic in each generated method.
 - **`ExecuteInTransactionAsync<T>` is hand-rolled** (`BeginTransaction` + commit/rollback in a
