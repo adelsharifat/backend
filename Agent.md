@@ -251,12 +251,15 @@ Conventions:
 
 - **Stored procedures only.** The single `CommandType.Text` query in the repo is the metadata
   lookup inside `GetTableParameterTypeAsync`. Schema prefixes: `CM.*`, `PIPE.*`, `QCPIPE.*`.
-- **TVP saves** are the house style for bulk writes: build a `DataTable` with typed columns,
-  resolve the type name with `GetTableParameterTypeAsync` (never hard-code it), then
-  `new SqlParameter("@Items", SqlDbType.Structured) { TypeName = … }`.
-  `PipeBaseInfoController` has reusable helpers — `StructuredParameter`, `CreateTable`,
-  `FillTable`, `ToRows`, `NullIfDbNull`, `ReadDecimal` — copy their shape for a new module rather
-  than inventing a second mapping style.
+- **TVP saves** are the house style for bulk writes. DAL methods live in a module-specific
+  partial class (`PipeDal`, `QcpipeDal`, …): keep its constructor and `DAL` dependency in the
+  handwritten `<Module>Dal.cs`; CodeGen emits one `<Procedure>.g.cs` partial per procedure.
+  Generated methods build the `DataTable` schema from SQL TVP metadata, then call
+  `table_Items.CopyFrom(request.Items)`. The shared `DataTableExtensions.CopyFrom<T>` in
+  `CMIS.CORE/Db` maps public model properties (including `[Column]` names) to SQL columns and
+  converts nulls to `DBNull.Value`. Always set `SqlParameter.TypeName` from SQL metadata.
+  `PipeBaseInfoController`'s `ToRows`, `NullIfDbNull`, and `ReadDecimal` helpers remain useful
+  for response mapping; do not duplicate TVP input-mapping logic in each generated method.
 - **`ExecuteInTransactionAsync<T>` is hand-rolled** (`BeginTransaction` + commit/rollback in a
   `try/catch`) and takes a `Func<…, Task<T>>`; it is not a distributed transaction and it does not
   flow through `TransactionScope`.

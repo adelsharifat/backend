@@ -183,7 +183,7 @@ internal static class DalGenerator
 
         foreach (var tvp in parameters.Where(p => p.IsTvp))
         {
-            var rowName = Identifier(tvp.TypeSchema + "_" + tvp.TypeName);
+            var rowName = TvpRowName(procedure, tvp);
             sb.AppendLine($"public sealed record {rowName}(");
             sb.AppendLine(string.Join("," + Environment.NewLine, tvp.Columns.Select(c =>
                 $"    [property: Column({Literal(c.Name)})] {Clr(c.SqlType, c.Nullable)} {Identifier(c.Name)}")));
@@ -195,7 +195,7 @@ internal static class DalGenerator
         sb.AppendLine($"public sealed class {procedureName}Request");
         sb.AppendLine("{");
         foreach (var p in inputs)
-            sb.AppendLine($"    public {ParameterClr(p)} {Identifier(p.Name)} {{ get; init; }}{(p.IsTvp ? " = Array.Empty<" + Identifier(p.TypeSchema + "_" + p.TypeName) + ">();" : "")}");
+            sb.AppendLine($"    public {ParameterClr(p, procedure)} {Identifier(p.Name)} {{ get; init; }}{(p.IsTvp ? " = Array.Empty<" + TvpRowName(procedure, p) + ">();" : "")}");
         sb.AppendLine("}");
         sb.AppendLine();
 
@@ -203,7 +203,7 @@ internal static class DalGenerator
         sb.AppendLine($"public sealed class {procedureName}Response");
         sb.AppendLine("{");
         foreach (var p in outputs)
-            sb.AppendLine($"    public {ParameterClr(p)} {Identifier(p.Name)} {{ get; init; }}");
+            sb.AppendLine($"    public {ParameterClr(p, procedure)} {Identifier(p.Name)} {{ get; init; }}");
         sb.AppendLine("}");
         sb.AppendLine();
 
@@ -235,7 +235,7 @@ internal static class DalGenerator
         sb.AppendLine($"        return new {procedureName}Response");
         sb.AppendLine("        {");
         foreach (var p in outputs)
-            sb.AppendLine($"            {Identifier(p.Name)} = parameters.First(p => p.ParameterName == {Literal("@" + p.Name)}).Value is DBNull ? default : ({ParameterClr(p)})parameters.First(p => p.ParameterName == {Literal("@" + p.Name)}).Value,");
+            sb.AppendLine($"            {Identifier(p.Name)} = parameters.First(p => p.ParameterName == {Literal("@" + p.Name)}).Value is DBNull ? default : ({ParameterClr(p, procedure)})parameters.First(p => p.ParameterName == {Literal("@" + p.Name)}).Value,");
         sb.AppendLine("        };");
         sb.AppendLine("    }");
         sb.AppendLine("}");
@@ -248,8 +248,10 @@ internal static class DalGenerator
 
     private static bool IsStringOrBinary(string t) => new[] { "char", "varchar", "nchar", "nvarchar", "binary", "varbinary" }.Contains(t, StringComparer.OrdinalIgnoreCase);
     private static bool IsNumeric(string t) => new[] { "decimal", "numeric" }.Contains(t, StringComparer.OrdinalIgnoreCase);
-    private static string ParameterClr(Parameter p) => p.IsTvp
-        ? $"IReadOnlyList<{Identifier(p.TypeSchema + "_" + p.TypeName)}>"
+    private static string TvpRowName(string procedure, Parameter parameter) =>
+        Identifier(Identifier(procedure) + "_" + parameter.TypeSchema + "_" + parameter.TypeName);
+    private static string ParameterClr(Parameter p, string procedure) => p.IsTvp
+        ? $"IReadOnlyList<{TvpRowName(procedure, p)}>"
         : Clr(p.SqlType, true);
     private static string Clr(string sql, bool nullable) => ClrBase(sql) + (nullable && ClrBase(sql) is not "string" and not "byte[]" ? "?" : nullable ? "?" : "");
     private static string ClrBase(string sql) => sql.ToLowerInvariant() switch
