@@ -106,7 +106,7 @@ Generated DTO properties preserve SQL column names using `[JsonPropertyName]`. E
 
 ### DAL generator
 
-The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus an ADO.NET extension method for the shared `CMIS.Core.Db.DAL`.
+The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (`PipeDal`, `QcpipeDal`, …).
 
 ```powershell
 cmis generate dal SaveFitup
@@ -114,7 +114,7 @@ cmis generate dal SaveFitup --module QCPIPE
 cmis generate dal PIPE.SaveLineList --output CMIS.PIPE/Data/SaveLineList.g.cs
 ```
 
-TVP row contracts are emitted alongside the procedure contract so the generated file is self-contained. The standalone TVP generator remains independently callable for generating shared TVP contracts. SQL Server does not expose reliable result-set schemas through `sys.parameters`; result-set DTOs therefore require an explicit contract and are not guessed.
+TVP row contracts are emitted alongside the procedure contract. The generated method creates the DataTable schema from SQL metadata and fills it with `table_Items.CopyFrom(request.Items)`, using the shared `DataTableExtensions` in `CMIS.CORE`. A handwritten `<Module>Dal.cs` partial contains the DAL dependency and constructor; generated procedure files extend that same class. The standalone TVP generator remains independently callable. SQL Server does not expose reliable result-set schemas through `sys.parameters`; result-set DTOs therefore require an explicit contract and are not guessed.
 
 ## Command overview
 

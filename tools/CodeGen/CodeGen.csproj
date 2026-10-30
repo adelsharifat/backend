@@ -7,7 +7,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>cmis</ToolCommandName>
     <PackageId>Cmis.CodeGen</PackageId>
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
     <Description>CMIS developer CLI for generating strongly typed C# code from SQL Server metadata.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

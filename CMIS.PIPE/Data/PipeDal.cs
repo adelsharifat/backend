@@ -1,0 +1,14 @@
+using CMIS.Core.Db;
+
+namespace CMIS.PIPE.Data;
+
+/// <summary>Data access methods for the PIPE module.</summary>
+public partial class PipeDal
+{
+    private readonly DAL _dal;
+
+    public PipeDal(DAL dal)
+    {
+        _dal = dal ?? throw new ArgumentNullException(nameof(dal));
+    }
+}
