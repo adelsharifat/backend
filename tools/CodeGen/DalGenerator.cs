@@ -249,7 +249,7 @@ internal static class DalGenerator
     }
 
     private static string SizePrecisionScale(Parameter p) =>
-        (p.MaxLength > 0 && IsStringOrBinary(p.SqlType) ? $", Size = {p.MaxLength}" : "") +
+        (p.MaxLength > 0 && IsStringOrBinary(p.SqlType) ? $", Size = {(p.SqlType.Equals("nvarchar", StringComparison.OrdinalIgnoreCase) || p.SqlType.Equals("nchar", StringComparison.OrdinalIgnoreCase) ? p.MaxLength / 2 : p.MaxLength)}" : "") +
         (p.Precision > 0 && IsNumeric(p.SqlType) ? $", Precision = {p.Precision}, Scale = {p.Scale}" : "");
 
     private static bool IsStringOrBinary(string t) => new[] { "char", "varchar", "nchar", "nvarchar", "binary", "varbinary" }.Contains(t, StringComparer.OrdinalIgnoreCase);
@@ -273,8 +273,8 @@ internal static class DalGenerator
         "real" => "Real", "float" => "Float", "decimal" or "numeric" => "Decimal", "money" => "Money", "smallmoney" => "SmallMoney",
         "uniqueidentifier" => "UniqueIdentifier", "date" => "Date", "datetime" => "DateTime", "datetime2" => "DateTime2",
         "smalldatetime" => "SmallDateTime", "datetimeoffset" => "DateTimeOffset", "time" => "Time",
-        "binary" => "Binary", "varbinary" or "image" or "timestamp" or "rowversion" => "VarBinary",
-        "char" => "Char", "varchar" or "text" => "VarChar", "nchar" => "NChar", "nvarchar" or "ntext" or "xml" => "NVarChar",
+        "binary" => "Binary", "varbinary" or "image" => "VarBinary", "timestamp" or "rowversion" => "Timestamp",
+        "char" => "Char", "varchar" or "text" => "VarChar", "nchar" => "NChar", "nvarchar" or "ntext" => "NVarChar", "xml" => "Xml",
         _ => throw new NotSupportedException($"Unsupported SQL type '{sql}'.")
     };
     private static (string Schema, string Name) SplitProcedure(string name, string defaultSchema)
