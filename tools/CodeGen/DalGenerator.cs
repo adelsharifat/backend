@@ -67,7 +67,7 @@ internal static class DalGenerator
             return 2;
         }
 
-        var module = (Option("module") ?? activeModule)?.Trim().ToUpperInvariant();
+        var module = (Option("module") ?? activeModule ?? DetectModuleFromCurrentDirectory())?.Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(module))
         {
             Console.Error.WriteLine("Set an active module first ('cmis module set PIPE') or pass --module.");
@@ -277,6 +277,14 @@ internal static class DalGenerator
         "char" => "Char", "varchar" or "text" => "VarChar", "nchar" => "NChar", "nvarchar" or "ntext" => "NVarChar", "xml" => "Xml",
         _ => throw new NotSupportedException($"Unsupported SQL type '{sql}'.")
     };
+    private static string? DetectModuleFromCurrentDirectory()
+    {
+        var directoryName = Path.GetFileName(Environment.CurrentDirectory);
+        return directoryName.StartsWith("CMIS.", StringComparison.OrdinalIgnoreCase)
+            ? directoryName[5..]
+            : null;
+    }
+
     private static (string Schema, string Name) SplitProcedure(string name, string defaultSchema)
     {
         var parts = name.Split('.', 2);
@@ -308,7 +316,7 @@ internal static class DalGenerator
         Usage: cmis generate dal <ProcedureName> [--module PIPE] [--schema PIPE]
                [--output CMIS.PIPE/Data/SaveLineList.g.cs]
         ProcedureName may be Procedure or schema.Procedure.
-        Module defaults to the saved active module. Schema defaults to the module name.
+        Module defaults to the saved active module, then to a current directory named CMIS.<MODULE>. Schema defaults to the module name.
         """);
 
     private sealed class Parameter(string name, string sqlType, string typeSchema, short maxLength, byte precision, byte scale, bool inputOutput, bool isOutput, bool isTvp)
