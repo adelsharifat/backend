@@ -14,7 +14,8 @@ internal static class ConnectionStringStore
 
     public static void Save(string connectionString)
     {
-        EnsureWindows();
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Connection-string storage uses Windows DPAPI and is available only on Windows.");
 
         var plainBytes = Encoding.UTF8.GetBytes(connectionString);
         try
@@ -81,10 +82,4 @@ internal static class ConnectionStringStore
             File.Delete(FilePath);
     }
 
-    private static void EnsureWindows()
-    {
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException(
-                "Connection-string storage uses Windows DPAPI and is available only on Windows.");
-    }
 }
