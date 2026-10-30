@@ -219,10 +219,7 @@ internal static class DalGenerator
             if (p.IsTvp)
             {
                 var tableVariable = "table_" + Regex.Replace(p.Name, "[^A-Za-z0-9_]", "_");
-                sb.AppendLine($"        var {tableVariable} = new DataTable({Literal(p.TypeSchema + "." + p.TypeName)});");
-                foreach (var c in p.Columns)
-                    sb.AppendLine($"        {tableVariable}.Columns.Add(new DataColumn({Literal(c.Name)}, typeof({ClrBase(c.SqlType)})) {{ AllowDBNull = {(c.Nullable ? "true" : "false")} }});");
-                sb.AppendLine($"        {tableVariable}.CopyFrom({property});");
+                sb.AppendLine($"        var {tableVariable} = Utils.ModelToDataTable({property}, {Literal(p.TypeSchema + "." + p.TypeName)});");
                 sb.AppendLine($"        parameters.Add(new SqlParameter({Literal("@" + p.Name)}, SqlDbType.Structured) {{ TypeName = {Literal(p.TypeSchema + "." + p.TypeName)}, Value = {tableVariable} }});");
             }
             else
