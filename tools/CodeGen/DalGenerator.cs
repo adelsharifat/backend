@@ -271,7 +271,7 @@ internal static class DalGenerator
         sb.AppendLine($"/// <summary>Generated from SQL table type {tvp.TypeSchema}.{tvp.TypeName}; shared by procedures using this TVP.</summary>");
         sb.AppendLine($"public sealed record {rowName}(");
         sb.AppendLine(string.Join("," + Environment.NewLine, tvp.Columns.Select(c =>
-            $"    [property: Column({Literal(c.Name)})] {Clr(c.SqlType, c.Nullable)} {Identifier(c.Name)}")));
+            $"    {Clr(c.SqlType, c.Nullable)} {Identifier(c.Name)}")));
         sb.AppendLine(");");
         return sb.ToString();
     }
@@ -284,7 +284,6 @@ internal static class DalGenerator
         sb.AppendLine("#nullable enable");
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
-        sb.AppendLine("using System.ComponentModel.DataAnnotations.Schema;");
         sb.AppendLine($"namespace CMIS.{Identifier(module)}.Models;");
         sb.AppendLine();
         return sb;
