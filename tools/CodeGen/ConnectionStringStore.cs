@@ -17,28 +17,33 @@ internal static class ConnectionStringStore
         EnsureWindows();
 
         var plainBytes = Encoding.UTF8.GetBytes(connectionString);
-        var protectedBytes = ProtectedData.Protect(
-            plainBytes, Entropy, DataProtectionScope.CurrentUser);
-
         try
         {
-            Directory.CreateDirectory(DirectoryPath);
-            var temporaryPath = FilePath + "." + Path.GetRandomFileName() + ".tmp";
+            var protectedBytes = ProtectedData.Protect(
+                plainBytes, Entropy, DataProtectionScope.CurrentUser);
             try
             {
-                File.WriteAllBytes(temporaryPath, protectedBytes);
-                File.Move(temporaryPath, FilePath, overwrite: true);
+                Directory.CreateDirectory(DirectoryPath);
+                var temporaryPath = FilePath + "." + Path.GetRandomFileName() + ".tmp";
+                try
+                {
+                    File.WriteAllBytes(temporaryPath, protectedBytes);
+                    File.Move(temporaryPath, FilePath, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(temporaryPath))
+                        File.Delete(temporaryPath);
+                }
             }
             finally
             {
-                if (File.Exists(temporaryPath))
-                    File.Delete(temporaryPath);
+                CryptographicOperations.ZeroMemory(protectedBytes);
             }
         }
         finally
         {
             CryptographicOperations.ZeroMemory(plainBytes);
-            CryptographicOperations.ZeroMemory(protectedBytes);
         }
     }
 
@@ -50,17 +55,22 @@ internal static class ConnectionStringStore
             return null;
 
         var protectedBytes = File.ReadAllBytes(FilePath);
-        var plainBytes = ProtectedData.Unprotect(
-            protectedBytes, Entropy, DataProtectionScope.CurrentUser);
-
         try
         {
-            return Encoding.UTF8.GetString(plainBytes);
+            var plainBytes = ProtectedData.Unprotect(
+                protectedBytes, Entropy, DataProtectionScope.CurrentUser);
+            try
+            {
+                return Encoding.UTF8.GetString(plainBytes);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(plainBytes);
+            }
         }
         finally
         {
             CryptographicOperations.ZeroMemory(protectedBytes);
-            CryptographicOperations.ZeroMemory(plainBytes);
         }
     }
 
