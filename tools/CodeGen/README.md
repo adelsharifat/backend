@@ -14,7 +14,7 @@ dotnet tool install --global --add-source .artifacts/tools Cmis.CodeGen
 If PowerShell cannot find `cmis`, add the .NET global-tools directory to your user PATH and open a new terminal:
 
 ```powershell
-$toolPath = Join-Path $env:USERPROFILE ".dotnet\\tools"
+$toolPath = Join-Path $env:USERPROFILE ".dotnet\tools"
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if (($userPath -split ";") -notcontains $toolPath) {
     [Environment]::SetEnvironmentVariable("Path", "$userPath;$toolPath", "User")
@@ -49,7 +49,7 @@ dotnet tool uninstall --global Cmis.CodeGen
 The active module is stored per Windows user in:
 
 ```text
-%LOCALAPPDATA%\\CMIS\\CodeGen\\settings.json
+%LOCALAPPDATA%\CMIS\CodeGen\settings.json
 ```
 
 It contains non-secret CLI settings only. It does not create or modify tracked project files.
@@ -80,7 +80,7 @@ cmis connection clear
 The encrypted connection is stored separately at:
 
 ```text
-%LOCALAPPDATA%\\CMIS\\CodeGen\\connection.bin
+%LOCALAPPDATA%\CMIS\CodeGen\connection.bin
 ```
 
 Encryption uses Windows DPAPI with `DataProtectionScope.CurrentUser`. Only the same Windows user profile on the same Windows installation can decrypt it. The connection string is not written to `settings.json`.
