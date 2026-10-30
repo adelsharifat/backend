@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Data.SqlClient;
 
-return await Generator.RunAsync(args);
+return await CmisCli.RunAsync(args);
 
 internal static class Generator
 {
