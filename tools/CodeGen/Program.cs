@@ -19,7 +19,7 @@ internal static class Generator
         ORDER BY s.name, tt.name, c.column_id;
         """;
 
-    public static async Task<int> RunAsync(string[] args)
+    public static async Task<int> RunAsync(string[] args, string? savedConnectionString = null)
     {
         var options = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < args.Length; i++)
@@ -41,10 +41,10 @@ internal static class Generator
         string? Option(string name, string? fallback = null) =>
             options.TryGetValue(name, out var value) ? value : fallback;
 
-        var cs = Option("connection-string") ?? Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING");
+        var cs = Option("connection-string") ?? Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING") ?? savedConnectionString;
         if (string.IsNullOrWhiteSpace(cs))
         {
-            Console.Error.WriteLine("Set CMIS_CODEGEN_CONNECTION_STRING or pass --connection-string.");
+            Console.Error.WriteLine("Run 'cmis connection set', set CMIS_CODEGEN_CONNECTION_STRING, or pass --connection-string.");
             return 2;
         }
 
@@ -186,7 +186,7 @@ internal static class Generator
         CMIS CLI - generate strongly typed C# contracts and DataTable mappers from SQL Server TVPs.
         Usage: cmis generate tvp [--connection-string "<connection string>"] [--schema PIPE] [--type LinesType]
                                  [--namespace CMIS.Generated.Tvp] [--output Generated/TvpContracts.g.cs]
-        Connection string can instead be set with CMIS_CODEGEN_CONNECTION_STRING.
+        Connection string precedence: --connection-string, CMIS_CODEGEN_CONNECTION_STRING, then the encrypted value saved by 'cmis connection set'.
         """);
 
     private sealed class Tvp(string schema, string name)
