@@ -41,7 +41,7 @@ independently runnable through its own Swagger UI.
 CMIS.slnx
 ├─ CMIS/         host: Program.cs (composition root), appsettings*, launchSettings, CMIS.http
 ├─ CMIS.CORE/    shared: DAL, Jwt, Services, Security, Hubs, Middleware, Models, Modules
-├─ CMIS.PIPE/    Pipe module     — PipeModule + PipeController + PipeBaseInfoController
+├─ CMIS.PIPE/    Pipe module     — PipeModule + PipeController
 └─ CMIS.WH/      Warehouse module — WarehouseModule + WarehouseController (health only)
 ```
 
@@ -156,7 +156,7 @@ Things that bite:
 Rules to preserve:
 
 - **The user id and project id always come from the token**, never from a route, query or body
-  (`TryGetUserId` / `TryGetProjectId` in `PipeBaseInfoController`).
+  (`TryGetUserId` / `TryGetProjectId` in `PipeController`).
 - Project selection is currently **hard-coded to 1** (`AuthService.SignInAsync` rejects anything
   else), because only one project is exposed. That check is a security control, not a placeholder
   to delete — replace it with a real project lookup when more projects exist (§10).
@@ -218,7 +218,7 @@ access. Those values are the wire format (`1 / 0 / null`) and the web client's
   `CheckAllowedItemsAsync(permission, [id])` turns an id that arrives in a request into a
   `403 { code: "acl_item_denied", message: "Value(s) 42 are not allowed by PIPE.COMPANY." }`.
   An endpoint that takes a company id calls it (the private `GuardCompanyAsync` helper in
-  `PipeBaseInfoController`), and the combo endpoints (`companies`, `contracts`) validate their
+  `PipeController`), and the combo endpoints (`companies`, `contracts`) validate their
   `acl` / `schema` query parameter against `AclRegistry`: an unknown or non-`Items` name is a 404,
   a permission the caller does not hold is a 403 - so a forged combo value can never read or write
   another company.
@@ -251,12 +251,18 @@ Conventions:
 
 - **Stored procedures only.** The single `CommandType.Text` query in the repo is the metadata
   lookup inside `GetTableParameterTypeAsync`. Schema prefixes: `CM.*`, `PIPE.*`, `QCPIPE.*`.
-- **TVP saves** are the house style for bulk writes: build a `DataTable` with typed columns,
-  resolve the type name with `GetTableParameterTypeAsync` (never hard-code it), then
-  `new SqlParameter("@Items", SqlDbType.Structured) { TypeName = … }`.
-  `PipeBaseInfoController` has reusable helpers — `StructuredParameter`, `CreateTable`,
-  `FillTable`, `ToRows`, `NullIfDbNull`, `ReadDecimal` — copy their shape for a new module rather
-  than inventing a second mapping style.
+- **TVP saves** are the house style for bulk writes. DAL methods live in a module-specific
+  partial class (`PipeDal`, `QcpipeDal`, …): CodeGen emits the module class file
+  (`<Module>Dal.g.cs`) with its `DAL` dependency and constructor, plus one procedure file under
+  `Data/`. Request, response, and reusable TVP row contracts are emitted under `Models/`.
+  TVP row model names are based on the SQL schema and table-type name, not the procedure, so
+  multiple procedures can share the same model. Generated methods call
+  `Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")` for each TVP. The shared static
+  utility in `CMIS.CORE/Db/Utils.cs` creates the DataTable schema from the generated row contract
+  (using property names, CLR types and nullability), then copies model values into rows and
+  converts nulls to `DBNull.Value`. Always set `SqlParameter.TypeName` from SQL metadata.
+  `PipeController`'s `ToRows`, `NullIfDbNull`, and `ReadDecimal` helpers remain useful
+  for response mapping; do not duplicate TVP input-mapping logic in each generated method.
 - **`ExecuteInTransactionAsync<T>` is hand-rolled** (`BeginTransaction` + commit/rollback in a
   `try/catch`) and takes a `Func<…, Task<T>>`; it is not a distributed transaction and it does not
   flow through `TransactionScope`.
@@ -293,10 +299,10 @@ feature that needs data:
 | 3 | **No project list endpoint**, and `projectId` is hard-coded to `1`. Blocks the client's login page (`LOGIN_PROJECTS`) and every multi-project screen. | `AuthService.SignInAsync` |
 | 4 | **Committed secrets**: `ConnectionStrings:Default` carries a real SQL `sa` password and `Jwt:SecretKey` is a placeholder. Move both to user-secrets / environment variables before this repo reaches a remote. | `CMIS/appsettings.json` |
 | 5 | **MD5 passwords** (`Md5Helper`) while `BCrypt.Net-Next` sits unused in `CMIS.CORE.csproj`. Plan: verify MD5 on login, rehash to BCrypt, then drop the MD5 path. | `AuthService`, `Security/Md5Helper.cs` |
-| 6 | **Uncommitted work**: the ACL port (`CMIS.CORE/Security/Acl/*`, `Security/PermissionService.cs`, `IPermissionService.cs`, `Controllers/AclController.cs`), its DI registration and the `PipeBaseInfoController` refactor (now `[RequireAcl]`-guarded) are untracked or modified — none of it is committed. | git |
+| 6 | **Uncommitted work**: the ACL port (`CMIS.CORE/Security/Acl/*`, `Security/PermissionService.cs`, `IPermissionService.cs`, `Controllers/AclController.cs`), its DI registration and the `PipeController` refactor (now `[RequireAcl]`-guarded) are untracked or modified — none of it is committed. | git |
 | 7 | **`CMIS.http` is the default template** (wrong port 5215, `/weatherforecast` does not exist). | `CMIS/CMIS.http` |
 | 8 | **No tests, and `.github/` is empty** — no CI. Don't claim a test run that did not happen. | repo root |
-| 9 | `PipeBaseInfoController` is ~875 lines and mixes five grids plus the line-list attachment stream (`line-list/{id}/file/{fileId}`); split it per area (`PmsThicknessController`, `LineListController`, …) when a sixth grid arrives. | `CMIS.PIPE` |
+| 9 | `PipeController` is ~875 lines and mixes five grids plus the line-list attachment stream (`line-list/{id}/file/{fileId}`); split it per area (`PmsThicknessController`, `LineListController`, …) when a sixth grid arrives. | `CMIS.PIPE` |
 | 10 | `CMIS.WH` only has a health endpoint — the Warehouse module is still a placeholder. | `CMIS.WH` |
 
 ## 11. Definition of done
@@ -324,8 +330,8 @@ permission denies. If the change is visible in the UI, verify it in the client a
 | Session revocation + realtime | `CMIS.CORE/Hubs/SessionHub.cs`, `Controllers/UserController.cs` |
 | Per-request session check | `CMIS.CORE/Security/SessionValidationMiddleware.cs` |
 | Error shape | `CMIS.CORE/Middleware/ApiExceptionMiddleware.cs`, `Models/ApiError.cs` |
-| Data access | `CMIS.CORE/Db/DAL.cs` |
+| Data access | `CMIS.CORE/Db/DAL.cs`, `CMIS.CORE/Db/Utils.cs` |
 | Permissions / `@Acl` | §7, `CMIS.CORE/Security/Acl/*`, `Controllers/AclController.cs` |
-| Row-level guard of a submitted id | `CMIS.CORE/Security/Acl/AclItemGuard.cs` (§7), `PipeBaseInfoController.GuardCompanyAsync` |
+| Row-level guard of a submitted id | `CMIS.CORE/Security/Acl/AclItemGuard.cs` (§7), `PipeController.GuardCompanyAsync` |
 | A real business module to copy | `CMIS.PIPE/*` |
 | The client-side half of the contract | `…\Clinet\cmis-web\docs\backend-contract.md` and its `Agent.md` §10 |
