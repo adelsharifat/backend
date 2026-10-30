@@ -322,6 +322,8 @@ internal static class DalGenerator
     {
         public string Name { get; } = name;
         public string SqlType { get; } = sqlType;
+        // For scalar parameters this is the SQL scalar type name; for TVPs it is the table type name.
+        public string TypeName { get; } = sqlType;
         public string TypeSchema { get; } = typeSchema;
         public short MaxLength { get; } = maxLength;
         public byte Precision { get; } = precision;
