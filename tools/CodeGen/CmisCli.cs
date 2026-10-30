@@ -39,7 +39,7 @@ internal static class CmisCli
                 {
                     savedConnection = ConnectionStringStore.Load();
                 }
-                catch (Exception ex) when (ex is CryptographicException or IOException or PlatformNotSupportedException)
+                catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException or PlatformNotSupportedException)
                 {
                     Console.Error.WriteLine($"Could not read the saved connection ({ex.GetType().Name}). Run 'cmis connection set' again.");
                     return 2;
