@@ -34,18 +34,26 @@ internal static class CmisCli
 
             if (args[1].Equals("tvp", StringComparison.OrdinalIgnoreCase))
             {
-                string? savedConnection;
-                try
+                var generatorArgs = args.Skip(2).ToArray();
+                var hasExplicitConnection = generatorArgs.Contains("--connection-string", StringComparer.OrdinalIgnoreCase) ||
+                    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING"));
+                var isHelp = generatorArgs.Any(argument => argument is "--help" or "-h");
+
+                string? savedConnection = null;
+                if (!hasExplicitConnection && !isHelp)
                 {
-                    savedConnection = ConnectionStringStore.Load();
-                }
-                catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-                {
-                    Console.Error.WriteLine($"Could not read the saved connection ({ex.GetType().Name}). Run 'cmis connection set' again.");
-                    return 2;
+                    try
+                    {
+                        savedConnection = ConnectionStringStore.Load();
+                    }
+                    catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+                    {
+                        Console.Error.WriteLine($"Could not read the saved connection ({ex.GetType().Name}). Run 'cmis connection set' again.");
+                        return 2;
+                    }
                 }
 
-                return await Generator.RunAsync(args.Skip(2).ToArray(), savedConnection);
+                return await Generator.RunAsync(generatorArgs, savedConnection);
             }
 
             if (args[1].Equals("dal", StringComparison.OrdinalIgnoreCase))
