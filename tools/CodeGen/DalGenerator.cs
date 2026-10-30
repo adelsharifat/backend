@@ -283,7 +283,7 @@ internal static class DalGenerator
         return parts.Length == 2 ? (parts[0], parts[1]) : (defaultSchema, parts[0]);
     }
     private static string DefaultOutput(string module, string procedure) =>
-        Directory.Exists("Data") && Path.GetFileName(Environment.CurrentDirectory).Equals("CMIS." + module, StringComparison.OrdinalIgnoreCase)
+        Path.GetFileName(Environment.CurrentDirectory).Equals("CMIS." + module, StringComparison.OrdinalIgnoreCase)
             ? Path.Combine("Data", Identifier(procedure) + ".g.cs")
             : Path.Combine("CMIS." + module, "Data", Identifier(procedure) + ".g.cs");
     private static string Identifier(string value)
@@ -291,8 +291,18 @@ internal static class DalGenerator
         var id = Regex.Replace(value, "[^A-Za-z0-9_]", "_");
         if (id.Length == 0) id = "Generated";
         if (char.IsDigit(id[0])) id = "_" + id;
+        if (CSharpKeywords.Contains(id)) id = "@" + id;
         return id;
     }
+    private static readonly HashSet<string> CSharpKeywords = new(StringComparer.Ordinal)
+    {
+        "abstract","as","base","bool","break","byte","case","catch","char","checked","class","const","continue",
+        "decimal","default","delegate","do","double","else","enum","event","explicit","extern","false","finally",
+        "fixed","float","for","foreach","goto","if","implicit","in","int","interface","internal","is","lock","long",
+        "namespace","new","null","object","operator","out","override","params","private","protected","public","readonly",
+        "ref","return","sbyte","sealed","short","sizeof","stackalloc","static","string","struct","switch","this","throw",
+        "true","try","typeof","uint","ulong","unchecked","unsafe","ushort","using","virtual","void","volatile","while"
+    };
     private static string Literal(string value) => """ + value.Replace("\\", "\\\\").Replace(""", "\\"") + """;
     private static void Help() => Console.WriteLine("""
         Usage: cmis generate dal <ProcedureName> [--module PIPE] [--schema PIPE]
