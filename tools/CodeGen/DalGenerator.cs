@@ -1,5 +1,4 @@
 using System.Data;
-using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
@@ -218,18 +217,18 @@ internal static class DalGenerator
             var property = "request." + Identifier(p.Name);
             if (p.IsTvp)
             {
-                var row = Identifier(p.TypeSchema + "_" + p.TypeName);
-                sb.AppendLine($"        var table_{Identifier(p.Name)} = new DataTable({Literal(p.TypeSchema + "." + p.TypeName)});");
+                var tableVariable = "table_" + Regex.Replace(p.Name, "[^A-Za-z0-9_]", "_");
+                sb.AppendLine($"        var {tableVariable} = new DataTable({Literal(p.TypeSchema + "." + p.TypeName)});");
                 foreach (var c in p.Columns)
-                    sb.AppendLine($"        table_{Identifier(p.Name)}.Columns.Add(new DataColumn({Literal(c.Name)}, typeof({ClrBase(c.SqlType)})) {{ AllowDBNull = {(c.Nullable ? "true" : "false")} }});");
+                    sb.AppendLine($"        {tableVariable}.Columns.Add(new DataColumn({Literal(c.Name)}, typeof({ClrBase(c.SqlType)})) {{ AllowDBNull = {(c.Nullable ? "true" : "false")} }});");
                 sb.AppendLine($"        foreach (var item in {property})");
                 sb.AppendLine("        {");
-                sb.AppendLine("            var row = table_" + Identifier(p.Name) + ".NewRow();");
+                sb.AppendLine($"            var row = {tableVariable}.NewRow();");
                 foreach (var c in p.Columns)
                     sb.AppendLine($"            row[{Literal(c.Name)}] = (object?)item.{Identifier(c.Name)} ?? DBNull.Value;");
-                sb.AppendLine("            table_" + Identifier(p.Name) + ".Rows.Add(row);");
+                sb.AppendLine($"            {tableVariable}.Rows.Add(row);");
                 sb.AppendLine("        }");
-                sb.AppendLine($"        parameters.Add(new SqlParameter({Literal("@" + p.Name)}, SqlDbType.Structured) {{ TypeName = {Literal(p.TypeSchema + "." + p.TypeName)}, Value = table_{Identifier(p.Name)} }});");
+                sb.AppendLine($"        parameters.Add(new SqlParameter({Literal("@" + p.Name)}, SqlDbType.Structured) {{ TypeName = {Literal(p.TypeSchema + "." + p.TypeName)}, Value = {tableVariable} }});");
             }
             else
             {
@@ -311,7 +310,7 @@ internal static class DalGenerator
         "ref","return","sbyte","sealed","short","sizeof","stackalloc","static","string","struct","switch","this","throw",
         "true","try","typeof","uint","ulong","unchecked","unsafe","ushort","using","virtual","void","volatile","while"
     };
-    private static string Literal(string value) => """ + value.Replace("\\", "\\\\").Replace(""", "\\"") + """;
+    private static string Literal(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
     private static void Help() => Console.WriteLine("""
         Usage: cmis generate dal <ProcedureName> [--module PIPE] [--schema PIPE]
                [--output CMIS.PIPE/Data/SaveLineList.g.cs]
