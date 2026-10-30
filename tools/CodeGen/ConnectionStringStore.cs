@@ -50,7 +50,8 @@ internal static class ConnectionStringStore
 
     public static string? Load()
     {
-        EnsureWindows();
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Connection-string storage uses Windows DPAPI and is available only on Windows.");
 
         if (!File.Exists(FilePath))
             return null;
@@ -77,7 +78,8 @@ internal static class ConnectionStringStore
 
     public static void Clear()
     {
-        EnsureWindows();
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Connection-string storage uses Windows DPAPI and is available only on Windows.");
         if (File.Exists(FilePath))
             File.Delete(FilePath);
     }
