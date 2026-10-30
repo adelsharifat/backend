@@ -58,9 +58,26 @@ internal static class CmisCli
 
             if (args[1].Equals("dal", StringComparison.OrdinalIgnoreCase))
             {
-                Console.Error.WriteLine("The DAL generator is not implemented yet.");
-                Console.Error.WriteLine("Reserved command: cmis generate dal <ProcedureName> [--module <MODULE>].");
-                return 2;
+                var generatorArgs = args.Skip(2).ToArray();
+                var hasExplicitConnection = generatorArgs.Contains("--connection-string", StringComparer.OrdinalIgnoreCase) ||
+                    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING"));
+                var isHelp = generatorArgs.Any(argument => argument is "--help" or "-h");
+
+                string? savedConnection = null;
+                if (!hasExplicitConnection && !isHelp)
+                {
+                    try
+                    {
+                        savedConnection = ConnectionStringStore.Load();
+                    }
+                    catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+                    {
+                        Console.Error.WriteLine($"Could not read the saved connection ({ex.GetType().Name}). Run 'cmis connection set' again.");
+                        return 2;
+                    }
+                }
+
+                return await DalGenerator.RunAsync(generatorArgs, savedConnection, ReadActiveModule());
             }
 
             Console.Error.WriteLine($"Unknown generator '{args[1]}'.");
@@ -335,7 +352,7 @@ internal static class CmisCli
           cmis generate tvp [options]
           cmis generate dal <ProcedureName> [--module <MODULE>]
 
-        The TVP generator can be used independently. The DAL generator is not implemented yet.
+        The TVP generator can be used independently. DAL generation reads stored procedure and TVP metadata from SQL Server.
         """);
 
     private static void PrintConnectionHelp() => Console.WriteLine("""
