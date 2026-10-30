@@ -114,7 +114,7 @@ cmis generate dal SaveFitup --module QCPIPE
 cmis generate dal PIPE.SaveLineList --output CMIS.PIPE/Data/SaveLineList.g.cs
 ```
 
-TVP row contracts are emitted alongside the procedure contract. The generated method creates the DataTable schema from SQL metadata and fills it with `table_Items.CopyFrom(request.Items)`, using the shared `DataTableExtensions` in `CMIS.CORE`. A handwritten `<Module>Dal.cs` partial contains the DAL dependency and constructor; generated procedure files extend that same class. The standalone TVP generator remains independently callable. SQL Server does not expose reliable result-set schemas through `sys.parameters`; result-set DTOs therefore require an explicit contract and are not guessed.
+TVP row contracts are emitted alongside the procedure contract. The generated method converts each TVP row collection with `Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")`. The shared static utility in `CMIS.CORE/Db/Utils.cs` creates DataTable columns from the generated row contract, honoring `[Column]` names, CLR types and nullability, then copies the rows. The SQL TVP type name is still assigned to `SqlParameter.TypeName` from SQL metadata. A handwritten `<Module>Dal.cs` partial contains the DAL dependency and constructor; generated procedure files extend that same class. The standalone TVP generator remains independently callable. SQL Server does not expose reliable result-set schemas through `sys.parameters`; result-set DTOs therefore require an explicit contract and are not guessed.
 
 ## Command overview
 
