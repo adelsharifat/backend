@@ -219,7 +219,10 @@ public sealed class PipeController : ControllerBase
             RevNo = request.RevNo.Trim(),
             Remark = request.Remark,
             RecieveDate = request.RecieveDate,
-            Lines = request.Lines,
+            // The SQL table column PIPE.Line.DisableRT is NOT NULL. The generated TVP
+            // contract exposes its corresponding field as nullable DisableForRT, so
+            // normalize omitted/null values before the stored procedure receives the rows.
+            Lines = request.Lines.Select(line => line with { DisableForRT = line.DisableForRT ?? false }).ToArray(),
             Files = request.Files
         }, cancellationToken);
 
