@@ -11,7 +11,7 @@ internal static class DalGenerator
             p.parameter_id, p.name, p.is_output, t.name AS type_name,
             SCHEMA_NAME(t.schema_id) AS type_schema,
             p.max_length, p.precision, p.scale,
-            ip.PARAMETER_MODE, p.has_default_value
+            ip.PARAMETER_MODE, t.is_table_type
         FROM sys.parameters p
         JOIN sys.types t ON t.user_type_id = p.user_type_id
         LEFT JOIN INFORMATION_SCHEMA.PARAMETERS ip
@@ -136,10 +136,7 @@ internal static class DalGenerator
         {
             var mode = reader.IsDBNull(8) ? (reader.GetBoolean(2) ? "OUT" : "IN") : reader.GetString(8);
             var type = reader.GetString(3);
-            var isTvp = type.Equals("table type", StringComparison.OrdinalIgnoreCase) ||
-                        !reader.IsDBNull(4) && type.Length > 0 && reader.GetInt16(5) == 0 &&
-                        type.Equals(reader.GetString(3), StringComparison.OrdinalIgnoreCase) &&
-                        reader.GetString(4) != "sys";
+            var isTvp = reader.GetBoolean(9);
             result.Add(new Parameter(
                 reader.GetString(1).TrimStart('@'), type,
                 reader.IsDBNull(4) ? "sys" : reader.GetString(4),
@@ -175,6 +172,8 @@ internal static class DalGenerator
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using System.Data;");
+        sb.AppendLine("using System.Globalization;");
+        sb.AppendLine("using System.Linq;");
         sb.AppendLine("using System.Threading;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using Microsoft.Data.SqlClient;");
