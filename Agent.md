@@ -251,12 +251,18 @@ Conventions:
 
 - **Stored procedures only.** The single `CommandType.Text` query in the repo is the metadata
   lookup inside `GetTableParameterTypeAsync`. Schema prefixes: `CM.*`, `PIPE.*`, `QCPIPE.*`.
-- **TVP saves** are the house style for bulk writes: build a `DataTable` with typed columns,
-  resolve the type name with `GetTableParameterTypeAsync` (never hard-code it), then
-  `new SqlParameter("@Items", SqlDbType.Structured) { TypeName = … }`.
-  `PipeBaseInfoController` has reusable helpers — `StructuredParameter`, `CreateTable`,
-  `FillTable`, `ToRows`, `NullIfDbNull`, `ReadDecimal` — copy their shape for a new module rather
-  than inventing a second mapping style.
+- **TVP saves** are the house style for bulk writes. DAL methods live in a module-specific
+  partial class (`PipeDal`, `QcpipeDal`, …): CodeGen emits the module class file
+  (`<Module>Dal.g.cs`) with its `DAL` dependency and constructor, plus one procedure file under
+  `Data/`. Request, response, and reusable TVP row contracts are emitted under `Models/`.
+  TVP row model names are based on the SQL schema and table-type name, not the procedure, so
+  multiple procedures can share the same model. Generated methods call
+  `Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")` for each TVP. The shared static
+  utility in `CMIS.CORE/Db/Utils.cs` creates the DataTable schema from the generated row contract
+  (using property names, CLR types and nullability), then copies model values into rows and
+  converts nulls to `DBNull.Value`. Always set `SqlParameter.TypeName` from SQL metadata.
+  `PipeBaseInfoController`'s `ToRows`, `NullIfDbNull`, and `ReadDecimal` helpers remain useful
+  for response mapping; do not duplicate TVP input-mapping logic in each generated method.
 - **`ExecuteInTransactionAsync<T>` is hand-rolled** (`BeginTransaction` + commit/rollback in a
   `try/catch`) and takes a `Func<…, Task<T>>`; it is not a distributed transaction and it does not
   flow through `TransactionScope`.
@@ -324,7 +330,7 @@ permission denies. If the change is visible in the UI, verify it in the client a
 | Session revocation + realtime | `CMIS.CORE/Hubs/SessionHub.cs`, `Controllers/UserController.cs` |
 | Per-request session check | `CMIS.CORE/Security/SessionValidationMiddleware.cs` |
 | Error shape | `CMIS.CORE/Middleware/ApiExceptionMiddleware.cs`, `Models/ApiError.cs` |
-| Data access | `CMIS.CORE/Db/DAL.cs` |
+| Data access | `CMIS.CORE/Db/DAL.cs`, `CMIS.CORE/Db/Utils.cs` |
 | Permissions / `@Acl` | §7, `CMIS.CORE/Security/Acl/*`, `Controllers/AclController.cs` |
 | Row-level guard of a submitted id | `CMIS.CORE/Security/Acl/AclItemGuard.cs` (§7), `PipeBaseInfoController.GuardCompanyAsync` |
 | A real business module to copy | `CMIS.PIPE/*` |
