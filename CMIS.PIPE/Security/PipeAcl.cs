@@ -48,6 +48,9 @@ public static class PipeAcl
     [AclPermission("PI081 - Line list : Edit")]
     public const string LINE_LIST_EDIT = "LINE_LIST_EDIT";
 
+    [AclPermission("Line list : Edit locked, voided or deleted lines")]
+    public const string LOCKED_LINE_EDIT = "LOCKED_LINE_EDIT";
+
     [AclPermission("PI082 - Line list : Clone line")]
     public const string LINE_LIST_CLONE = "LINE_LIST_CLONE";
 
