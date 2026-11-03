@@ -11,4 +11,8 @@
     <ProjectReference Include="..\CMIS.CORE\CMIS.CORE.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Data\" />
+  </ItemGroup>
+
 </Project>

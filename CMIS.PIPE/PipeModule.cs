@@ -1,5 +1,6 @@
 using System.Reflection;
 using CMIS.Core.Modules;
+using CMIS.PIPE.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +17,6 @@ public sealed class PipeModule : ICMISModule
 
     public void Register(IServiceCollection services, IConfiguration configuration)
     {
-        // Register Pipe services here as they are added.
+        services.AddScoped<PipeDal>();
     }
 }
