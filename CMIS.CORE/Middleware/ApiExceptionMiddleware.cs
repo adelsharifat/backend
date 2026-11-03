@@ -10,6 +10,7 @@ public sealed class ApiExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ApiExceptionMiddleware> _logger;
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public ApiExceptionMiddleware(RequestDelegate next, ILogger<ApiExceptionMiddleware> logger)
     {
@@ -51,6 +52,6 @@ public sealed class ApiExceptionMiddleware
 
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsync(JsonSerializer.Serialize(error));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(error, JsonOptions));
     }
 }
