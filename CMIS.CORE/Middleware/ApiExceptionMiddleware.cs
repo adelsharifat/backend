@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Data.SqlClient;
 using CMIS.Core.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,14 @@ public sealed class ApiExceptionMiddleware
         try
         {
             await _next(context);
+        }
+        catch (SqlException exception) when (exception.Number >= 50000)
+        {
+            // User-defined SQL errors (THROW / RAISERROR) are expected business errors.
+            // Return their message to the client instead of masking them as HTTP 500.
+            _logger.LogInformation(exception, "Stored procedure returned a user-defined SQL error.");
+            await WriteErrorAsync(context, StatusCodes.Status400BadRequest,
+                new ApiError("database_error", exception.Message));
         }
         catch (UnauthorizedAccessException)
         {
