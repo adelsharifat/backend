@@ -85,7 +85,7 @@ The cache is saved at:
 %LOCALAPPDATA%\CMIS\CodeGen\completions.json
 ```
 
-Refresh it when procedures change. The refresh command queries procedures visible to the supplied SQL login; it does not store the connection string. The cache is loaded on dot-source, so re-run the dot-source line (or open a new PowerShell session) after refreshing to use the updated list. If SQL Server is unavailable, static completion continues to work.
+Refresh it when procedures change. The refresh command queries procedures visible to the supplied SQL login; it does not store the connection string. The refresh command updates the current session immediately and writes the cache for future sessions. Newly opened PowerShell sessions load the saved list automatically when the profile dot-sources the script. If SQL Server is unavailable, static completion continues to work.
 
 Examples:
 
