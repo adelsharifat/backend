@@ -61,22 +61,20 @@ $completionScript = (Resolve-Path ./tools/CodeGen/PowerShell/CmisCompletion.ps1)
 Add-Content -Path $PROFILE -Value ". '$completionScript'"
 ```
 
-### Stored-procedure suggestions (optional)
+### Stored-procedure suggestions
 
-Tab completion is deliberately **local-only**. Pressing Tab never imports a module, opens a SQL connection, or reads a file. Static commands/options are available immediately. Stored-procedure and TVP names are read from a local cache loaded once when the completion script is dot-sourced.
+Tab completion is local-only. Pressing Tab never opens a SQL connection. Stored-procedure and TVP names are read from a local cache when the completion script is loaded, and partial text matches anywhere in the schema-qualified name.
 
-To populate or refresh that cache, install the optional `SqlServer` module and provide a connection string:
+Refresh the cache using the saved connection configured with `cmis connection set`:
 
 ```powershell
-Install-Module SqlServer -Scope CurrentUser
-$env:CMIS_CODEGEN_CONNECTION_STRING = "Server=...;Database=...;Integrated Security=True;TrustServerCertificate=True"
-Update-CmisCompletionCache
+cmis sync
 ```
 
-Alternatively, pass the connection string directly to the refresh command:
+Or refresh and reload suggestions in the current PowerShell session in one step:
 
 ```powershell
-Update-CmisCompletionCache -ConnectionString "Server=...;Database=...;Integrated Security=True;TrustServerCertificate=True"
+Update-CmisCompletionCache
 ```
 
 The cache contains both stored procedures and user-defined table types and is saved at:
@@ -85,15 +83,15 @@ The cache contains both stored procedures and user-defined table types and is sa
 %LOCALAPPDATA%\CMIS\CodeGen\completions.json
 ```
 
-Refresh it when stored procedures or TVP types change. The refresh command queries objects visible to the supplied SQL login; it does not store the connection string. The refresh command updates the current session immediately and writes the cache for future sessions. Newly opened PowerShell sessions load the saved list automatically when the profile dot-sources the script. If SQL Server is unavailable, static completion continues to work.
+The refresh command queries objects visible to the configured SQL login. It replaces the cache only after both metadata queries succeed; if SQL Server is unavailable or permissions are insufficient, the previous cache remains intact. No additional PowerShell SQL module is required.
 
 Examples:
 
 ```powershell
 cmis <Tab>
 cmis generate <Tab>
-cmis generate dal <Tab>
-cmis generate dal PIPE.SaveLineList --module <Tab>
+cmis generate dal Save<Tab>
+cmis generate dal Fitup --module <Tab>
 ```
 
 ## Module context
