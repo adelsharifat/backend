@@ -69,7 +69,7 @@ internal static class Generator
             options["type"] = parts[1];
         }
 
-        var output = Path.GetFullPath(Option("output", "Generated/TvpContracts.g.cs")!);
+        var output = Path.GetFullPath(Option("output", "Models/TvpContracts.g.cs")!);
         var ns = Option("namespace", "CMIS.Generated.Tvp")!;
         var tables = new List<Tvp>();
         try
