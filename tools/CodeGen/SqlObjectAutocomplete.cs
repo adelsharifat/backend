@@ -13,35 +13,60 @@ internal static class SqlObjectAutocomplete
         ORDER BY s.name, p.name;
         """;
 
-    public static async Task<string?> SelectStoredProcedureAsync(string connectionString, string? schemaFilter = null)
+    private const string TableTypesQuery = """
+        SELECT s.name, tt.name
+        FROM sys.table_types AS tt
+        INNER JOIN sys.schemas AS s ON s.schema_id = tt.schema_id
+        WHERE tt.is_user_defined = 1
+          AND (@schema IS NULL OR s.name = @schema)
+        ORDER BY s.name, tt.name;
+        """;
+
+    public static Task<string?> SelectStoredProcedureAsync(string connectionString, string? schemaFilter = null) =>
+        SelectAsync(connectionString, schemaFilter, StoredProceduresQuery, "stored procedure", "stored procedures");
+
+    public static Task<string?> SelectTableTypeAsync(string connectionString, string? schemaFilter = null) =>
+        SelectAsync(connectionString, schemaFilter, TableTypesQuery, "table type", "user-defined table types");
+
+    private static async Task<string?> SelectAsync(
+        string connectionString,
+        string? schemaFilter,
+        string query,
+        string objectLabel,
+        string collectionLabel)
     {
         if (Console.IsInputRedirected || Console.IsOutputRedirected)
         {
-            Console.Error.WriteLine("Interactive procedure selection requires a terminal. Pass the procedure name as an argument.");
+            Console.Error.WriteLine($"Interactive {objectLabel} selection requires a terminal.");
             return null;
         }
 
-        var procedures = new List<string>();
+        var objects = new List<string>();
         await using (var connection = new SqlConnection(connectionString))
         {
             await connection.OpenAsync();
-            await using var command = new SqlCommand(StoredProceduresQuery, connection);
+            await using var command = new SqlCommand(query, connection);
             command.Parameters.Add("@schema", SqlDbType.NVarChar, 128).Value =
                 string.IsNullOrWhiteSpace(schemaFilter) ? DBNull.Value : schemaFilter;
             await using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
-                procedures.Add(reader.GetString(0) + "." + reader.GetString(1));
+                objects.Add(reader.GetString(0) + "." + reader.GetString(1));
         }
 
-        if (procedures.Count == 0)
+        if (objects.Count == 0)
         {
             Console.Error.WriteLine(string.IsNullOrWhiteSpace(schemaFilter)
-                ? "No visible stored procedures were found in this database."
-                : $"No visible stored procedures were found in schema '{schemaFilter}'.");
+                ? $"No visible {collectionLabel} were found in this database."
+                : $"No visible {collectionLabel} were found in schema '{schemaFilter}'.");
             return null;
         }
 
-        const string prompt = "Stored procedure: ";
+        var prompt = objectLabel switch
+        {
+            "stored procedure" => "Stored procedure: ",
+            "table type" => "TVP table type: ",
+            _ => $"{objectLabel}: "
+        };
         const string hint = "Type to filter | Up/Down navigate | Enter select | Esc cancel";
 
         // Let the terminal manage scrolling; WindowTop/BufferHeight are Windows-only APIs.
@@ -56,9 +81,9 @@ internal static class SqlObjectAutocomplete
         List<string> Filtered()
         {
             if (filter.Length == 0)
-                return procedures;
+                return objects;
 
-            return procedures
+            return objects
                 .Where(name => name.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(name => name.StartsWith(filter, StringComparison.OrdinalIgnoreCase))
                 .ThenBy(name => name, StringComparer.OrdinalIgnoreCase)
@@ -114,7 +139,7 @@ internal static class SqlObjectAutocomplete
                     filter = filter[..^1];
                 selectedIndex = 0;
             }
-            else if (!char.IsControl(key.KeyChar) && key.KeyChar != '\0')
+            else if (!char.IsControl(key.KeyChar) && key.KeyChar != '\\0')
             {
                 filter += key.KeyChar;
                 selectedIndex = 0;
@@ -154,7 +179,7 @@ internal static class SqlObjectAutocomplete
 
             var visibleCount = Math.Min(MaxSuggestions, Math.Max(0, items.Count - startIndex));
             var status = items.Count == 0
-                ? "   No matching stored procedures."
+                ? $"   No matching {collectionLabel}."
                 : $"   Showing {startIndex + 1}-{startIndex + visibleCount} of {items.Count}";
             if (status.Length >= width)
                 status = status[..(width - 1)];
