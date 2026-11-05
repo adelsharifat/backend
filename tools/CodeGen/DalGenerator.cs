@@ -10,7 +10,7 @@ internal static class DalGenerator
             p.parameter_id, p.name, p.is_output, t.name AS type_name,
             SCHEMA_NAME(t.schema_id) AS type_schema,
             p.max_length, p.precision, p.scale,
-            ip.PARAMETER_MODE, t.is_table_type
+            ip.PARAMETER_MODE, t.is_table_type, p.is_nullable
         FROM sys.parameters p
         JOIN sys.types t ON t.user_type_id = p.user_type_id
         LEFT JOIN INFORMATION_SCHEMA.PARAMETERS ip
@@ -191,7 +191,7 @@ internal static class DalGenerator
                 reader.IsDBNull(4) ? "sys" : reader.GetString(4),
                 reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7),
                 mode.Equals("INOUT", StringComparison.OrdinalIgnoreCase) || mode.Equals("IN/OUT", StringComparison.OrdinalIgnoreCase),
-                reader.GetBoolean(2), isTvp));
+                reader.GetBoolean(2), isTvp, reader.GetBoolean(10)));
         }
         return result;
     }
@@ -412,7 +412,7 @@ internal static class DalGenerator
         Module defaults to the saved active module, then to a current directory named CMIS.<MODULE>. Schema defaults to the module name.
         """);
 
-    private sealed class Parameter(string name, string sqlType, string typeSchema, short maxLength, byte precision, byte scale, bool inputOutput, bool isOutput, bool isTvp)
+    private sealed class Parameter(string name, string sqlType, string typeSchema, short maxLength, byte precision, byte scale, bool inputOutput, bool isOutput, bool isTvp, bool isNullable)
     {
         public string Name { get; } = name;
         public string SqlType { get; } = sqlType;
@@ -425,6 +425,7 @@ internal static class DalGenerator
         public bool IsInputOutput { get; } = inputOutput;
         public bool IsOutput { get; } = isOutput;
         public bool IsTvp { get; } = isTvp;
+        public bool IsNullable { get; } = isNullable;
         public List<Column> Columns { get; set; } = [];
     }
     private sealed record Column(string Name, string SqlType, bool Nullable);
