@@ -69,12 +69,15 @@ internal static class SqlObjectAutocomplete
         };
         const string hint = "Type to filter | Up/Down navigate | Enter select | Esc cancel";
 
-        // Let the terminal manage scrolling; WindowTop/BufferHeight are Windows-only APIs.
-        var promptTop = Console.CursorTop;
+        const string hint = "Type to filter | Up/Down navigate | Enter select | Esc cancel";
+        const int suggestionRows = MaxSuggestions + 2;
+
+        // Always redraw relative to the live cursor. Absolute rows become stale when the
+        // terminal scrolls while the suggestion list is being rendered.
         Console.Write(prompt);
-        var promptLeft = Console.CursorLeft;
-        Console.WriteLine(); // Keep the input on its own row; suggestions render below it.
-        var suggestionsTop = Console.CursorTop;
+        Console.WriteLine();
+        Console.SetCursorPosition(0, Console.CursorTop - 1);
+
         var filter = string.Empty;
         var selectedIndex = 0;
 
@@ -99,9 +102,7 @@ internal static class SqlObjectAutocomplete
             if (key.Key == ConsoleKey.Escape ||
                 (key.Key == ConsoleKey.C && key.Modifiers.HasFlag(ConsoleModifiers.Control)))
             {
-                ClearSuggestions();
-                Console.SetCursorPosition(0, suggestionsTop);
-                Console.WriteLine("Selection cancelled.");
+                Finish("Selection cancelled.");
                 return null;
             }
 
@@ -114,12 +115,7 @@ internal static class SqlObjectAutocomplete
                 }
 
                 var selected = matches[selectedIndex];
-                Console.SetCursorPosition(promptLeft, promptTop);
-                Console.Write(prompt + selected);
-                Console.Write(new string(' ', Math.Max(0, Console.WindowWidth - Console.CursorLeft - 1)));
-                ClearSuggestions();
-                Console.SetCursorPosition(0, suggestionsTop);
-                Console.WriteLine();
+                Finish(prompt + selected);
                 return selected;
             }
 
@@ -139,7 +135,7 @@ internal static class SqlObjectAutocomplete
                     filter = filter[..^1];
                 selectedIndex = 0;
             }
-            else if (!char.IsControl(key.KeyChar) && key.KeyChar != '\0')
+            else if (!char.IsControl(key.KeyChar) && key.KeyChar != '\\0')
             {
                 filter += key.KeyChar;
                 selectedIndex = 0;
@@ -153,10 +149,6 @@ internal static class SqlObjectAutocomplete
             if (selectedIndex >= matches.Count)
                 selectedIndex = 0;
 
-            Console.SetCursorPosition(promptLeft + prompt.Length, promptTop);
-            Console.Write(filter);
-            Console.Write(new string(' ', Math.Max(0, Console.WindowWidth - Console.CursorLeft - 1)));
-            Console.SetCursorPosition(promptLeft + prompt.Length + filter.Length, promptTop);
             Render(matches, selectedIndex);
         }
 
@@ -164,41 +156,46 @@ internal static class SqlObjectAutocomplete
         {
             var width = Math.Max(2, Console.WindowWidth - 1);
             var startIndex = Math.Clamp(activeIndex - MaxSuggestions + 1, 0, Math.Max(0, items.Count - MaxSuggestions));
-            Console.SetCursorPosition(0, suggestionsTop);
+
+            WriteLine(prompt + filter, width);
             for (var i = 0; i < MaxSuggestions; i++)
             {
                 var itemIndex = startIndex + i;
                 var line = itemIndex < items.Count
                     ? (itemIndex == activeIndex ? " > " : "   ") + items[itemIndex]
                     : string.Empty;
-                if (line.Length >= width)
-                    line = line[..(width - 1)];
-                Console.Write(line.PadRight(width - 1));
-                Console.WriteLine();
+                WriteLine(line, width);
             }
 
             var visibleCount = Math.Min(MaxSuggestions, Math.Max(0, items.Count - startIndex));
             var status = items.Count == 0
                 ? $"   No matching {collectionLabel}."
                 : $"   Showing {startIndex + 1}-{startIndex + visibleCount} of {items.Count}";
-            if (status.Length >= width)
-                status = status[..(width - 1)];
-            Console.Write(status.PadRight(width - 1));
-            Console.WriteLine();
-            Console.Write(hint);
-            Console.Write(new string(' ', Math.Max(0, width - hint.Length - 1)));
-            Console.SetCursorPosition(promptLeft + prompt.Length + filter.Length, promptTop);
+            WriteLine(status, width);
+            WriteLine(hint, width);
+
+            // Return to the prompt using the cursor's current row, not a saved row that
+            // may have moved when the terminal scrolled during the writes above.
+            Console.SetCursorPosition(
+                Math.Clamp(prompt.Length + filter.Length, 0, width - 1),
+                Math.Max(0, Console.CursorTop - suggestionRows - 1));
         }
 
-        void ClearSuggestions()
+        void Finish(string message)
         {
             var width = Math.Max(2, Console.WindowWidth - 1);
-            Console.SetCursorPosition(0, suggestionsTop);
-            for (var i = 0; i < MaxSuggestions + 2; i++)
-            {
-                Console.Write(new string(' ', width - 1));
-                Console.WriteLine();
-            }
+            Console.SetCursorPosition(0, Console.CursorTop);
+            WriteLine(message, width);
+            for (var i = 0; i < suggestionRows; i++)
+                WriteLine(string.Empty, width);
+        }
+
+        static void WriteLine(string value, int width)
+        {
+            if (value.Length >= width)
+                value = value[..(width - 1)];
+            Console.Write(value.PadRight(width - 1));
+            Console.WriteLine();
         }
     }
 }
