@@ -59,23 +59,13 @@ internal static class Generator
             return 2;
         }
 
-        if (positionalType is not null)
+        var requestedType = positionalType ?? Option("type");
+        if (!string.IsNullOrWhiteSpace(requestedType) && requestedType.Contains('.') &&
+            Option("schema") is not null &&
+            !Option("schema")!.Equals(requestedType.Split('.', 2)[0], StringComparison.OrdinalIgnoreCase))
         {
-            var parts = positionalType.Split('.', 2);
-            if (parts.Length == 2)
-            {
-                if (Option("schema") is not null && !Option("schema")!.Equals(parts[0], StringComparison.OrdinalIgnoreCase))
-                {
-                    Console.Error.WriteLine("The schema in the TVP name conflicts with --schema.");
-                    return 2;
-                }
-                options["schema"] = parts[0];
-                options["type"] = parts[1];
-            }
-            else
-            {
-                options["type"] = positionalType;
-            }
+            Console.Error.WriteLine("The schema in the TVP name conflicts with --schema.");
+            return 2;
         }
 
         var cs = Option("connection-string") ?? Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING") ?? savedConnectionString;
@@ -85,32 +75,38 @@ internal static class Generator
             return 2;
         }
 
-        if (Option("type") is null && !Console.IsInputRedirected && !Console.IsOutputRedirected)
+        try
+        {
+            await CompletionCache.EnsureFreshAsync(cs);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Could not verify/refresh SQL metadata cache ({ex.GetType().Name}). TVP generation was cancelled.");
+            return 1;
+        }
+
+        if (requestedType is not null || (!Console.IsInputRedirected && !Console.IsOutputRedirected))
         {
             string? selectedType;
             try
             {
-                selectedType = await SqlObjectAutocomplete.SelectTableTypeAsync(cs, Option("schema"));
+                selectedType = await CompletionCache.SelectTableTypeAsync(requestedType, Option("schema"));
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Could not load TVP table types ({ex.GetType().Name}). Check the SQL connection and metadata permissions.");
+                Console.Error.WriteLine($"Could not read TVP table types from the local cache ({ex.GetType().Name}).");
                 return 1;
             }
 
             if (string.IsNullOrWhiteSpace(selectedType))
+            {
+                Console.WriteLine("Selection cancelled or no matching TVP type was found.");
                 return 130;
+            }
 
-            var parts = selectedType.Split('.', 2);
-            if (parts.Length == 2)
-            {
-                options["schema"] = parts[0];
-                options["type"] = parts[1];
-            }
-            else
-            {
-                options["type"] = selectedType;
-            }
+            var selectedParts = selectedType.Split('.', 2);
+            options["schema"] = selectedParts[0];
+            options["type"] = selectedParts[1];
         }
 
         var module = (activeModule ?? DetectModuleFromCurrentDirectory())?.Trim().ToUpperInvariant();
