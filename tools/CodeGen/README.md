@@ -85,7 +85,7 @@ The cache contains both stored procedures and user-defined table types and is sa
 %LOCALAPPDATA%\CMIS\CodeGen\completions.json
 ```
 
-Refresh it when procedures change. The refresh command queries procedures visible to the supplied SQL login; it does not store the connection string. The refresh command updates the current session immediately and writes the cache for future sessions. Newly opened PowerShell sessions load the saved list automatically when the profile dot-sources the script. If SQL Server is unavailable, static completion continues to work.
+Refresh it when stored procedures or TVP types change. The refresh command queries objects visible to the supplied SQL login; it does not store the connection string. The refresh command updates the current session immediately and writes the cache for future sessions. Newly opened PowerShell sessions load the saved list automatically when the profile dot-sources the script. If SQL Server is unavailable, static completion continues to work.
 
 Examples:
 
@@ -151,7 +151,7 @@ cmis generate tvp --schema PIPE
 cmis generate tvp QCPIPE.FitupItems
 ```
 
-Pass a TVP as a positional `Schema.Type` argument (for example, `cmis generate tvp PIPE.Linestype`). In an interactive terminal, omitting the type prompts for a name. Press Enter on an empty prompt to display a numbered list, then enter a number or a name; `--schema` filters that list. PowerShell Tab completion is also available before running the command (`cmis generate tvp <Tab>`). Passing `--type` also skips the picker. The default output is `Models/TvpContracts.g.cs` when run inside a module project, or `CMIS.<MODULE>/Models/TvpContracts.g.cs` from the repository root when an active module is set. The default namespace is `CMIS.<MODULE>.Models` when a module is known. Override the output or namespace with `--output` or `--namespace`. When input or output is redirected and the type is omitted, the generator retains its batch behavior and generates all matching user-defined table types.
+Pass a TVP as a positional `Schema.Type` argument (for example, `cmis generate tvp PIPE.Linestype`). In an interactive terminal, omitting the type prompts for a name. Press Enter on an empty prompt to display a numbered list, then enter a number or a name; `--schema` filters that list. PowerShell Tab completion is also available before running the command (`cmis generate tvp <Tab>`). Passing `--type` also skips the prompt. The default output is `Models/TvpContracts.g.cs` when run inside a module project, or `CMIS.<MODULE>/Models/TvpContracts.g.cs` from the repository root when an active module is set. The default namespace is `CMIS.<MODULE>.Models` when a module is known. Override the output or namespace with `--output` or `--namespace`. When input or output is redirected and the type is omitted, the generator retains its batch behavior and generates all matching user-defined table types.
 
 Connection resolution order is: explicit `--connection-string`, `CMIS_CODEGEN_CONNECTION_STRING`, then the value saved by `cmis connection set`.
 
