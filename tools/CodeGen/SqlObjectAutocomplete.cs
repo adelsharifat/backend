@@ -141,8 +141,8 @@ internal static class SqlObjectAutocomplete
             if (selectedIndex >= matches.Count)
                 selectedIndex = 0;
 
-            Console.SetCursorPosition(promptLeft, promptTop);
-            Console.Write(prompt + filter);
+            Console.SetCursorPosition(promptLeft + prompt.Length, promptTop);
+            Console.Write(filter);
             Console.Write(new string(' ', Math.Max(0, Console.WindowWidth - Console.CursorLeft - 1)));
             Console.SetCursorPosition(promptLeft + prompt.Length + filter.Length, promptTop);
             Render(matches, selectedIndex);
