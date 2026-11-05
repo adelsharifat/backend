@@ -349,7 +349,7 @@ internal static class CmisCli
 
     private static void PrintGenerateHelp() => Console.WriteLine("""
         Generate commands:
-          cmis generate tvp [options]
+          cmis generate tvp [<Schema.Type>] [options]
           cmis generate dal [<ProcedureName>] [--module <MODULE>]
 
         The TVP generator can be used independently. DAL generation reads stored procedure and TVP metadata from SQL Server.
