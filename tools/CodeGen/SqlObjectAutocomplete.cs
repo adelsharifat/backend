@@ -42,7 +42,7 @@ internal static class SqlObjectAutocomplete
         }
 
         const string prompt = "Stored procedure: ";
-        const string hint = "Type to filter | Tab/Shift+Tab complete | Up/Down navigate | Enter select | Esc cancel";
+        const string hint = "Type to filter | Up/Down navigate | Enter select | Esc cancel";
 
         // Let the terminal manage scrolling; WindowTop/BufferHeight are Windows-only APIs.
         var promptTop = Console.CursorTop;
@@ -52,8 +52,6 @@ internal static class SqlObjectAutocomplete
         var suggestionsTop = Console.CursorTop;
         var filter = string.Empty;
         var selectedIndex = 0;
-        List<string>? completionCandidates = null;
-        var completionIndex = -1;
 
         List<string> Filtered()
         {
@@ -100,51 +98,24 @@ internal static class SqlObjectAutocomplete
                 return selected;
             }
 
-            if (key.Key == ConsoleKey.Tab)
+            if (key.Key == ConsoleKey.UpArrow)
             {
-                completionCandidates ??= matches.ToList();
-                if (completionCandidates.Count == 0)
-                {
-                    Console.Beep();
-                    continue;
-                }
-
-                // Match PowerShell-style completion: each Tab cycles forward,
-                // while Shift+Tab cycles backward through the current suggestions.
-                completionIndex = key.Modifiers.HasFlag(ConsoleModifiers.Shift)
-                    ? (completionIndex <= 0 ? completionCandidates.Count - 1 : completionIndex - 1)
-                    : (completionIndex + 1) % completionCandidates.Count;
-
-                filter = completionCandidates[completionIndex];
-                matches = completionCandidates;
-                selectedIndex = completionIndex;
-            }
-            else if (key.Key == ConsoleKey.UpArrow)
-            {
-                completionCandidates = null;
-                completionIndex = -1;
                 if (matches.Count > 0)
                     selectedIndex = (selectedIndex - 1 + matches.Count) % matches.Count;
             }
             else if (key.Key == ConsoleKey.DownArrow)
             {
-                completionCandidates = null;
-                completionIndex = -1;
                 if (matches.Count > 0)
                     selectedIndex = (selectedIndex + 1) % matches.Count;
             }
             else if (key.Key == ConsoleKey.Backspace)
             {
-                completionCandidates = null;
-                completionIndex = -1;
                 if (filter.Length > 0)
                     filter = filter[..^1];
                 selectedIndex = 0;
             }
             else if (!char.IsControl(key.KeyChar) && key.KeyChar != '\0')
             {
-                completionCandidates = null;
-                completionIndex = -1;
                 filter += key.KeyChar;
                 selectedIndex = 0;
             }
