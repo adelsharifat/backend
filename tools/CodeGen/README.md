@@ -159,7 +159,7 @@ Generated DTO properties preserve SQL column names using `[JsonPropertyName]`. E
 
 ### DAL generator
 
-The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (`PipeDal`, `QcpipeDal`, …). If the procedure name is omitted, an interactive picker loads visible stored procedures from SQL Server; typing filters the list locally, and the arrow keys/Enter select an item.
+The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (`PipeDal`, `QcpipeDal`, …). If the procedure name is omitted, an interactive picker loads visible stored procedures from SQL Server; typing filters the list locally, and the arrow keys/Enter select an item. The interactive picker uses the terminal alternate screen to isolate redraws from prior command output and prevent scrolling from corrupting the display.
 
 ```powershell
 cmis generate dal
