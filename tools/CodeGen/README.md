@@ -148,10 +148,10 @@ The TVP generator remains independently usable:
 ```powershell
 cmis generate tvp
 cmis generate tvp --schema PIPE
-cmis generate tvp --schema QCPIPE --type FitupItems
+cmis generate tvp QCPIPE.FitupItems
 ```
 
-The default output is `Models/TvpContracts.g.cs`, keeping generated contracts with the module models. Override it with `--output` when needed. Options: `--schema`, `--type`, `--namespace`, `--output`, `--connection-string`. In an interactive terminal, omitting `--type` opens the TVP picker; typing filters the list, and the arrow keys/Enter select a table type. An optional `--schema` limits the picker. Passing `--type` skips the picker. When input or output is redirected and `--type` is omitted, the generator keeps its batch behavior and generates all matching user-defined table types.
+The default output is `Models/TvpContracts.g.cs`, keeping generated contracts with the module models. Override it with `--output` when needed. You can pass the type as a positional `Schema.Type` argument (for example, `cmis generate tvp PIPE.Linestype`). In an interactive terminal, omitting the type opens the TVP picker; `--schema` optionally filters that picker. The default output is `Models/TvpContracts.g.cs` when run inside a module project (or `CMIS.<MODULE>/Models/TvpContracts.g.cs` from the repository root), and the default namespace is `CMIS.<MODULE>.Models`. Options: `--schema`, `--type`, `--namespace`, `--output`, `--connection-string`. Passing `--type` also skips the picker; typing filters the list, and the arrow keys/Enter select a table type. An optional `--schema` limits the picker. Passing `--type` skips the picker. When input or output is redirected and `--type` is omitted, the generator keeps its batch behavior and generates all matching user-defined table types.
 
 Connection resolution order is: explicit `--connection-string`, `CMIS_CODEGEN_CONNECTION_STRING`, then the value saved by `cmis connection set`.
 
@@ -181,7 +181,7 @@ cmis connection current
 cmis connection test
 cmis connection clear
 
-cmis generate tvp [options]
+cmis generate tvp [<Schema.Type>] [options]
 cmis generate dal [<ProcedureName>] [--module <MODULE>]
 ```
 
