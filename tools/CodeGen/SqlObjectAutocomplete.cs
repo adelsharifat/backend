@@ -135,19 +135,24 @@ internal static class SqlObjectAutocomplete
         void Render(IReadOnlyList<string> items, int activeIndex)
         {
             var width = Math.Max(20, Console.WindowWidth - 1);
+            var startIndex = Math.Clamp(activeIndex - MaxSuggestions + 1, 0, Math.Max(0, items.Count - MaxSuggestions));
             Console.SetCursorPosition(0, suggestionsTop);
             for (var i = 0; i < MaxSuggestions; i++)
             {
-                var line = i < items.Count ? (i == activeIndex ? " > " : "   ") + items[i] : string.Empty;
+                var itemIndex = startIndex + i;
+                var line = itemIndex < items.Count
+                    ? (itemIndex == activeIndex ? " > " : "   ") + items[itemIndex]
+                    : string.Empty;
                 if (line.Length >= width)
                     line = line[..(width - 1)];
                 Console.Write(line.PadRight(width - 1));
                 Console.WriteLine();
             }
 
+            var visibleCount = Math.Min(MaxSuggestions, Math.Max(0, items.Count - startIndex));
             var status = items.Count == 0
                 ? "   No matching stored procedures."
-                : $"   {Math.Min(items.Count, MaxSuggestions)} of {items.Count} suggestion(s)";
+                : $"   Showing {startIndex + 1}-{startIndex + visibleCount} of {items.Count}";
             if (status.Length >= width)
                 status = status[..(width - 1)];
             Console.Write(status.PadRight(width - 1));
