@@ -43,6 +43,18 @@ internal static class SqlObjectAutocomplete
 
         const string prompt = "Stored procedure: ";
         const string hint = "Type to filter | Up/Down navigate | Enter select | Esc cancel";
+
+        // Keep the entire interactive area inside the visible terminal window.
+        // Otherwise each redraw can scroll the console and leave the saved cursor
+        // coordinates pointing at the wrong rows, making suggestions appear duplicated.
+        const int renderRows = MaxSuggestions + 3; // prompt + suggestions + status + hint
+        var requiredWindowTop = Console.CursorTop + renderRows - Console.WindowHeight;
+        if (requiredWindowTop > Console.WindowTop)
+        {
+            var maxWindowTop = Math.Max(0, Console.BufferHeight - Console.WindowHeight);
+            Console.WindowTop = Math.Min(requiredWindowTop, maxWindowTop);
+        }
+
         var promptTop = Console.CursorTop;
         Console.Write(prompt);
         var promptLeft = Console.CursorLeft;
@@ -134,7 +146,7 @@ internal static class SqlObjectAutocomplete
 
         void Render(IReadOnlyList<string> items, int activeIndex)
         {
-            var width = Math.Max(20, Console.WindowWidth - 1);
+            var width = Math.Max(2, Console.WindowWidth - 1);
             var startIndex = Math.Clamp(activeIndex - MaxSuggestions + 1, 0, Math.Max(0, items.Count - MaxSuggestions));
             Console.SetCursorPosition(0, suggestionsTop);
             for (var i = 0; i < MaxSuggestions; i++)
