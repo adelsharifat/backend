@@ -72,14 +72,6 @@ internal static class DalGenerator
             return 2;
         }
 
-        var (schema, procName) = SplitProcedure(procedure, Option("schema") ?? module);
-        if (!Regex.IsMatch(schema, "^[A-Za-z_][A-Za-z0-9_]*$") ||
-            !Regex.IsMatch(procName, "^[A-Za-z_][A-Za-z0-9_]*$"))
-        {
-            Console.Error.WriteLine("Procedure name must be [schema.]ProcedureName.");
-            return 2;
-        }
-
         var cs = Option("connection-string")
             ?? Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING")
             ?? savedConnectionString;
@@ -94,6 +86,14 @@ internal static class DalGenerator
             procedure = await SqlObjectAutocomplete.SelectStoredProcedureAsync(cs, Option("schema"));
             if (string.IsNullOrWhiteSpace(procedure))
                 return 130;
+        }
+
+        var (schema, procName) = SplitProcedure(procedure, Option("schema") ?? module);
+        if (!Regex.IsMatch(schema, "^[A-Za-z_][A-Za-z0-9_]*$") ||
+            !Regex.IsMatch(procName, "^[A-Za-z_][A-Za-z0-9_]*$"))
+        {
+            Console.Error.WriteLine("Procedure name must be [schema.]ProcedureName.");
+            return 2;
         }
 
         try
