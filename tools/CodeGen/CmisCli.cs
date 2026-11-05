@@ -53,7 +53,7 @@ internal static class CmisCli
                     }
                 }
 
-                return await Generator.RunAsync(generatorArgs, savedConnection);
+                return await Generator.RunAsync(generatorArgs, savedConnection, ReadActiveModule());
             }
 
             if (args[1].Equals("dal", StringComparison.OrdinalIgnoreCase))
@@ -337,7 +337,7 @@ internal static class CmisCli
           cmis connection current
           cmis connection test
           cmis connection clear
-          cmis generate tvp [options]
+          cmis generate tvp [<Schema.Type>] [options]
           cmis generate dal [<ProcedureName>] [--module <MODULE>]
 
         Global options:
@@ -349,7 +349,7 @@ internal static class CmisCli
 
     private static void PrintGenerateHelp() => Console.WriteLine("""
         Generate commands:
-          cmis generate tvp [options]
+          cmis generate tvp [<Schema.Type>] [options]
           cmis generate dal [<ProcedureName>] [--module <MODULE>]
 
         The TVP generator can be used independently. DAL generation reads stored procedure and TVP metadata from SQL Server.
