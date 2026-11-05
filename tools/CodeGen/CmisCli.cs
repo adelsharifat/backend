@@ -382,6 +382,7 @@ internal static class CmisCli
           cmis connection current
           cmis connection test
           cmis connection clear
+          cmis sync
           cmis generate tvp [<Schema.Type>] [options]
           cmis generate dal [<ProcedureName>] [--module <MODULE>]
 
