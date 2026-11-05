@@ -120,14 +120,9 @@ internal static class Generator
         var outputOption = Option("output");
         var outputDirectory = Path.GetFullPath(outputOption is null
             ? defaultOutputDirectory
-            : Path.HasExtension(outputOption) && (Option("type") is not null || positionalType is not null)
+            : Path.HasExtension(outputOption)
                 ? Path.GetDirectoryName(Path.GetFullPath(outputOption))!
                 : outputOption);
-        var explicitSingleOutput = outputOption is not null &&
-            (Option("type") is not null || positionalType is not null) &&
-            Path.HasExtension(outputOption)
-            ? Path.GetFullPath(outputOption)
-            : null;
         var defaultNamespace = string.IsNullOrWhiteSpace(module) ? "CMIS.Generated.Tvp" : $"CMIS.{module}.Models";
         var ns = Option("namespace", defaultNamespace)!;
         var tables = new List<Tvp>();
@@ -159,6 +154,9 @@ internal static class Generator
 
             Directory.CreateDirectory(outputDirectory);
             var generatedFiles = new List<string>();
+            var explicitSingleOutput = outputOption is not null && tables.Count == 1 && Path.HasExtension(outputOption)
+                ? Path.GetFullPath(outputOption)
+                : null;
             foreach (var table in tables)
             {
                 var className = Id(table.Schema + "_" + table.Name).TrimStart('@');
