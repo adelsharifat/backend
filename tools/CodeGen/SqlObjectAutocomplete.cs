@@ -176,7 +176,7 @@ internal static class SqlObjectAutocomplete
 
         void ClearSuggestions()
         {
-            var width = Math.Max(20, Console.WindowWidth - 1);
+            var width = Math.Max(2, Console.WindowWidth - 1);
             Console.SetCursorPosition(0, suggestionsTop);
             for (var i = 0; i < MaxSuggestions + 2; i++)
             {
