@@ -71,6 +71,7 @@ internal static class SqlObjectAutocomplete
         var visibleRows = Math.Clamp(Console.WindowHeight - 3, 1, MaxSuggestions);
         var width = Math.Max(1, Console.WindowWidth - 1);
         var originalCursorVisible = Console.CursorVisible;
+        var filter = string.Empty;
         string? selectedObject = null;
         var cancelled = false;
 
@@ -82,7 +83,6 @@ internal static class SqlObjectAutocomplete
             Console.Write("\u001b[?1049h\u001b[2J\u001b[H");
             Console.CursorVisible = false;
 
-            var filter = string.Empty;
             var selectedIndex = 0;
 
             List<string> Filtered()
