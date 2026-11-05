@@ -112,13 +112,23 @@ internal static class Generator
         var module = (activeModule ?? DetectModuleFromCurrentDirectory())?.Trim().ToUpperInvariant();
         var isModuleDirectory = !string.IsNullOrWhiteSpace(module) &&
             Path.GetFileName(Environment.CurrentDirectory).Equals("CMIS." + module, StringComparison.OrdinalIgnoreCase);
-        var defaultOutput = string.IsNullOrWhiteSpace(module)
-            ? Path.Combine("Models", "TvpContracts.g.cs")
+        var defaultOutputDirectory = string.IsNullOrWhiteSpace(module)
+            ? Path.Combine("Models")
             : isModuleDirectory
-                ? Path.Combine("Models", "TvpContracts.g.cs")
-                : Path.Combine("CMIS." + module, "Models", "TvpContracts.g.cs");
+                ? Path.Combine("Models")
+                : Path.Combine("CMIS." + module, "Models");
+        var outputOption = Option("output");
+        var outputDirectory = Path.GetFullPath(outputOption is null
+            ? defaultOutputDirectory
+            : Path.HasExtension(outputOption) && (Option("type") is not null || positionalType is not null)
+                ? Path.GetDirectoryName(Path.GetFullPath(outputOption))!
+                : outputOption);
+        var explicitSingleOutput = outputOption is not null &&
+            (Option("type") is not null || positionalType is not null) &&
+            Path.HasExtension(outputOption)
+            ? Path.GetFullPath(outputOption)
+            : null;
         var defaultNamespace = string.IsNullOrWhiteSpace(module) ? "CMIS.Generated.Tvp" : $"CMIS.{module}.Models";
-        var output = Path.GetFullPath(Option("output", defaultOutput)!);
         var ns = Option("namespace", defaultNamespace)!;
         var tables = new List<Tvp>();
         try
@@ -147,9 +157,22 @@ internal static class Generator
                 return 1;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-            await File.WriteAllTextAsync(output, Generate(tables, ns), new UTF8Encoding(false));
-            Console.WriteLine($"Generated {tables.Count} TVP contract(s): {output}");
+            Directory.CreateDirectory(outputDirectory);
+            var generatedFiles = new List<string>();
+            foreach (var table in tables)
+            {
+                var className = Id(table.Schema + "_" + table.Name).TrimStart('@');
+                var outputPath = explicitSingleOutput is not null
+                    ? explicitSingleOutput
+                    : Path.Combine(outputDirectory, className + ".g.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+                await File.WriteAllTextAsync(outputPath, Generate([table], ns), new UTF8Encoding(false));
+                generatedFiles.Add(outputPath);
+            }
+
+            Console.WriteLine($"Generated {tables.Count} TVP contract(s):");
+            foreach (var file in generatedFiles)
+                Console.WriteLine($"  {file}");
             foreach (var table in tables)
                 Console.WriteLine($"  {table.Schema}.{table.Name}: {table.Columns.Count} columns");
             return 0;
@@ -255,7 +278,7 @@ internal static class Generator
     private static void Help() => Console.WriteLine("""
         CMIS CLI - generate strongly typed C# contracts and DataTable mappers from SQL Server TVPs.
         Usage: cmis generate tvp [<Schema.Type>] [--connection-string "<connection string>"] [--schema PIPE] [--type LinesType]
-                                 [--namespace CMIS.<MODULE>.Models] [--output Models/TvpContracts.g.cs]
+                                 [--namespace CMIS.<MODULE>.Models] [--output <file-or-directory>]
         Pass a TVP as Schema.Type, or omit it in an interactive terminal to enter a name or choose from a numbered list. In redirected sessions, omitting the type generates all matching types.
         Connection string precedence: --connection-string, CMIS_CODEGEN_CONNECTION_STRING, then the encrypted value saved by 'cmis connection set'.
         """);
