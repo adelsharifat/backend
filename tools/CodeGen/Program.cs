@@ -102,8 +102,15 @@ internal static class Generator
                 return 130;
 
             var parts = selectedType.Split('.', 2);
-            options["schema"] = parts[0];
-            options["type"] = parts[1];
+            if (parts.Length == 2)
+            {
+                options["schema"] = parts[0];
+                options["type"] = parts[1];
+            }
+            else
+            {
+                options["type"] = selectedType;
+            }
         }
 
         var module = (activeModule ?? DetectModuleFromCurrentDirectory())?.Trim().ToUpperInvariant();
