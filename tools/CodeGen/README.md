@@ -146,11 +146,12 @@ For unattended use, the TVP generator still supports `CMIS_CODEGEN_CONNECTION_ST
 The TVP generator remains independently usable:
 
 ```powershell
-cmis generate tvp --schema PIPE --output CMIS.Generated/PipeTvpContracts.g.cs
+cmis generate tvp
+cmis generate tvp --schema PIPE
 cmis generate tvp --schema QCPIPE --type FitupItems
 ```
 
-Options: `--schema`, `--type`, `--namespace`, `--output`, `--connection-string`. Omit schema/type to generate all user-defined table types.
+Options: `--schema`, `--type`, `--namespace`, `--output`, `--connection-string`. In an interactive terminal, omitting `--type` opens the TVP picker; typing filters the list, and the arrow keys/Enter select a table type. An optional `--schema` limits the picker. Passing `--type` skips the picker. When input or output is redirected and `--type` is omitted, the generator keeps its batch behavior and generates all matching user-defined table types.
 
 Connection resolution order is: explicit `--connection-string`, `CMIS_CODEGEN_CONNECTION_STRING`, then the value saved by `cmis connection set`.
 
