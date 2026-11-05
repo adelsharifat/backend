@@ -1,143 +1,143 @@
 # CMIS CLI
 
-The CMIS developer tool is a .NET 10 global tool. Its executable command is **\`cmis\`**, so it can be invoked from any working directory after installation.
+The CMIS developer tool is a .NET 10 global tool. Its executable command is **`cmis`**, so it can be invoked from any working directory after installation.
 
 ## Build and install locally (Windows)
 
 From the backend repository root:
 
-\`\`\`powershell
+```powershell
 dotnet pack tools/CodeGen/CodeGen.csproj --configuration Release --output .artifacts/tools
 dotnet tool install --global --add-source .artifacts/tools Cmis.CodeGen
-\`\`\`
+```
 
-If PowerShell cannot find \`cmis\`, add the .NET global-tools directory to your user PATH and open a new terminal:
+If PowerShell cannot find `cmis`, add the .NET global-tools directory to your user PATH and open a new terminal:
 
-\`\`\`powershell
-$toolPath = Join-Path $env:USERPROFILE ".dotnet\\tools"
+```powershell
+$toolPath = Join-Path $env:USERPROFILE ".dotnet\tools"
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if (($userPath -split ";") -notcontains $toolPath) {
     [Environment]::SetEnvironmentVariable("Path", "$userPath;$toolPath", "User")
 }
-\`\`\`
+```
 
 Verify the installation:
 
-\`\`\`powershell
+```powershell
 cmis --help
 cmis module current
 cmis connection current
-\`\`\`
+```
 
 ## Update and uninstall
 
 After building a newer package:
 
-\`\`\`powershell
+```powershell
 dotnet pack tools/CodeGen/CodeGen.csproj --configuration Release --output .artifacts/tools
 dotnet tool update --global --add-source .artifacts/tools Cmis.CodeGen
-\`\`\`
+```
 
 To uninstall:
 
-\`\`\`powershell
+```powershell
 dotnet tool uninstall --global Cmis.CodeGen
-\`\`\`
+```
 
 ## PowerShell tab completion
 
-The repository includes a native PowerShell argument completer for \`cmis\`. It provides command, subcommand, option and module suggestions. PowerShell handles cycling through suggestions with repeated Tab presses.
+The repository includes a native PowerShell argument completer for `cmis`. It provides command, subcommand, option and module suggestions. PowerShell handles cycling through suggestions with repeated Tab presses.
 
 Load it in the current session from the repository root:
 
-\`\`\`powershell
+```powershell
 . ./tools/CodeGen/PowerShell/CmisCompletion.ps1
-\`\`\`
+```
 
 To load it automatically in every PowerShell session, add the following to your profile. Run this from the repository root so the path resolves correctly:
 
-\`\`\`powershell
+```powershell
 $completionScript = (Resolve-Path ./tools/CodeGen/PowerShell/CmisCompletion.ps1).Path
 Add-Content -Path $PROFILE -Value ". '$completionScript'"
-\`\`\`
+```
 
 ### Stored-procedure suggestions (optional)
 
 Tab completion is deliberately **local-only**. Pressing Tab never imports a module, opens a SQL connection, or reads a file. Static commands/options are available immediately. Stored-procedure names are read from a local cache loaded once when the completion script is dot-sourced.
 
-To populate or refresh that cache, install the optional \`SqlServer\` module and provide a connection string:
+To populate or refresh that cache, install the optional `SqlServer` module and provide a connection string:
 
-\`\`\`powershell
+```powershell
 Install-Module SqlServer -Scope CurrentUser
 $env:CMIS_CODEGEN_CONNECTION_STRING = "Server=...;Database=...;Integrated Security=True;TrustServerCertificate=True"
 Update-CmisCompletionCache
-\`\`\`
+```
 
 Alternatively, pass the connection string directly to the refresh command:
 
-\`\`\`powershell
+```powershell
 Update-CmisCompletionCache -ConnectionString "Server=...;Database=...;Integrated Security=True;TrustServerCertificate=True"
-\`\`\`
+```
 
 The cache is saved at:
 
-\`\`\`text
-%LOCALAPPDATA%\\CMIS\\CodeGen\\completions.json
-\`\`\`
+```text
+%LOCALAPPDATA%\CMIS\CodeGen\completions.json
+```
 
 Refresh it when procedures change. The refresh command queries procedures visible to the supplied SQL login; it does not store the connection string. The cache is loaded on dot-source, so re-run the dot-source line (or open a new PowerShell session) after refreshing to use the updated list. If SQL Server is unavailable, static completion continues to work.
 
 Examples:
 
-\`\`\`powershell
+```powershell
 cmis <Tab>
 cmis generate <Tab>
 cmis generate dal <Tab>
 cmis generate dal PIPE.SaveLineList --module <Tab>
-\`\`\`
+```
 
 ## Module context
 
 The active module is stored per Windows user in:
 
-\`\`\`text
-%LOCALAPPDATA%\\CMIS\\CodeGen\\settings.json
-\`\`\`
+```text
+%LOCALAPPDATA%\CMIS\CodeGen\settings.json
+```
 
 It contains non-secret CLI settings only. It does not create or modify tracked project files.
 
-\`\`\`powershell
+```powershell
 cmis module set PIPE
 cmis module current
-\`\`\`
+```
 
-An explicit \`--module\` on a generation command is an invocation-only override; it does not change the saved default.
+An explicit `--module` on a generation command is an invocation-only override; it does not change the saved default.
 
 ## SQL Server connection
 
 Configure the connection interactively. Input is hidden and the value is not echoed to the terminal:
 
-\`\`\`powershell
+```powershell
 cmis connection set
 cmis connection current
 cmis connection test
 cmis connection clear
-\`\`\`
+```
 
-- \`set\`: prompts for a SQL Server connection string without displaying typed characters.
-- \`current\`: shows server, database and authentication mode; it never prints the connection string, user name or password.
-- \`test\`: opens a real SQL Server connection and reports success or a non-secret SQL error number.
-- \`clear\`: deletes the saved connection.
+- `set`: prompts for a SQL Server connection string without displaying typed characters.
+- `current`: shows server, database and authentication mode; it never prints the connection string, user name or password.
+- `test`: opens a real SQL Server connection and reports success or a non-secret SQL error number.
+- `clear`: deletes the saved connection.
 
 The encrypted connection is stored separately at:
 
-\`\`\`text
-%LOCALAPPDATA%\\CMIS\\CodeGen\\connection.bin
-\`\`\`
+```text
+%LOCALAPPDATA%\CMIS\CodeGen\connection.bin
+```
 
-Encryption uses Windows DPAPI with \`DataProtectionScope.CurrentUser\`. Only the same Windows user profile on the same Windows installation can decrypt it. The connection string is not written to \`settings.json\`.
+Encryption uses Windows DPAPI with `DataProtectionScope.CurrentUser`. Only the same Windows user profile on the same Windows installation can decrypt it. The connection string is not written to `settings.json`.
 
-For unattended use, the TVP generator still supports \`CMIS_CODEGEN_CONNECTION_STRING\` or \`--connection-string\`; be aware that command-line arguments and environment variables may be exposed to other processes or shell history. The saved DPAPI value is preferred for interactive use.
+For unattended use, the TVP generator still supports `CMIS_CODEGEN_CONNECTION_STRING` or `--connection-string`; be aware that command-line arguments and environment variables may be exposed to other processes or shell history. The saved DPAPI value is preferred for interactive use.
 
 ## Generators
 
@@ -145,33 +145,33 @@ For unattended use, the TVP generator still supports \`CMIS_CODEGEN_CONNECTION_S
 
 The TVP generator remains independently usable:
 
-\`\`\`powershell
+```powershell
 cmis generate tvp --schema PIPE --output CMIS.Generated/PipeTvpContracts.g.cs
 cmis generate tvp --schema QCPIPE --type FitupItems
-\`\`\`
+```
 
-Options: \`--schema\`, \`--type\`, \`--namespace\`, \`--output\`, \`--connection-string\`. Omit schema/type to generate all user-defined table types.
+Options: `--schema`, `--type`, `--namespace`, `--output`, `--connection-string`. Omit schema/type to generate all user-defined table types.
 
-Connection resolution order is: explicit \`--connection-string\`, \`CMIS_CODEGEN_CONNECTION_STRING\`, then the value saved by \`cmis connection set\`.
+Connection resolution order is: explicit `--connection-string`, `CMIS_CODEGEN_CONNECTION_STRING`, then the value saved by `cmis connection set`.
 
-Generated DTO properties preserve SQL column names using \`[JsonPropertyName]\`. Each class includes \`ToDataTable(IEnumerable<T>)\`. Unsupported SQL types fail explicitly rather than silently generating incorrect contracts.
+Generated DTO properties preserve SQL column names using `[JsonPropertyName]`. Each class includes `ToDataTable(IEnumerable<T>)`. Unsupported SQL types fail explicitly rather than silently generating incorrect contracts.
 
 ### DAL generator
 
-The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (\`PipeDal\`, \`QcpipeDal\`, …). If the procedure name is omitted, an interactive picker loads visible stored procedures from SQL Server; typing filters the list locally, and the arrow keys/Enter select an item.
+The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (`PipeDal`, `QcpipeDal`, …). If the procedure name is omitted, an interactive picker loads visible stored procedures from SQL Server; typing filters the list locally, and the arrow keys/Enter select an item.
 
-\`\`\`powershell
+```powershell
 cmis generate dal
 cmis generate dal SaveFitup
 cmis generate dal SaveFitup --module QCPIPE
 cmis generate dal PIPE.SaveLineList --output CMIS.PIPE/Data/SaveLineList.g.cs
-\`\`\`
+```
 
-DAL generation writes the procedure implementation under \`Data/\`, request/response contracts under \`Models/\`, and one reusable TVP row model per SQL table type under \`Models/\`. TVP model names use the SQL schema and type name, so different procedures that use the same TVP share one C# model. It also emits the module DAL partial class (\`Data/PipeDal.g.cs\`, \`Data/QcpipeDal.g.cs\`, etc.) with its \`DAL\` dependency and constructor; the procedure files extend that class. Generated methods convert each TVP row collection with \`Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")\`. The shared static utility in \`CMIS.CORE/Db/Utils.cs\` creates DataTable columns from the generated row contract, using property names, CLR types and nullability, then copies the rows. The SQL TVP type name is still assigned to \`SqlParameter.TypeName\` from SQL metadata. The standalone TVP generator remains independently callable. SQL Server does not expose reliable result-set schemas through \`sys.parameters\`; result-set DTOs therefore require an explicit contract and are not guessed.
+DAL generation writes the procedure implementation under `Data/`, request/response contracts under `Models/`, and one reusable TVP row model per SQL table type under `Models/`. TVP model names use the SQL schema and type name, so different procedures that use the same TVP share one C# model. It also emits the module DAL partial class (`Data/PipeDal.g.cs`, `Data/QcpipeDal.g.cs`, etc.) with its `DAL` dependency and constructor; the procedure files extend that class. Generated methods convert each TVP row collection with `Utils.ModelToDataTable(request.Items, "SCHEMA.TypeName")`. The shared static utility in `CMIS.CORE/Db/Utils.cs` creates DataTable columns from the generated row contract, using property names, CLR types and nullability, then copies the rows. The SQL TVP type name is still assigned to `SqlParameter.TypeName` from SQL metadata. The standalone TVP generator remains independently callable. SQL Server does not expose reliable result-set schemas through `sys.parameters`; result-set DTOs therefore require an explicit contract and are not guessed.
 
 ## Command overview
 
-\`\`\`text
+```text
 cmis module set <MODULE>
 cmis module current
 
@@ -182,6 +182,6 @@ cmis connection clear
 
 cmis generate tvp [options]
 cmis generate dal [<ProcedureName>] [--module <MODULE>]
-\`\`\`
+```
 
-There is no \`cmis g\` alias; use the explicit \`cmis generate\` command.
+There is no `cmis g` alias; use the explicit `cmis generate` command.
