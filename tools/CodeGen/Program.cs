@@ -207,6 +207,7 @@ internal static class Generator
         CMIS CLI - generate strongly typed C# contracts and DataTable mappers from SQL Server TVPs.
         Usage: cmis generate tvp [--connection-string "<connection string>"] [--schema PIPE] [--type LinesType]
                                  [--namespace CMIS.Generated.Tvp] [--output Generated/TvpContracts.g.cs]
+        In an interactive terminal, omit --type to open the TVP picker. In redirected sessions, omitting --type generates all matching types.
         Connection string precedence: --connection-string, CMIS_CODEGEN_CONNECTION_STRING, then the encrypted value saved by 'cmis connection set'.
         """);
 
