@@ -19,7 +19,7 @@ if (Test-Path -LiteralPath $script:CmisCompletionCachePath -PathType Leaf) {
         $cache = Get-Content -LiteralPath $script:CmisCompletionCachePath -Raw -ErrorAction Stop |
             ConvertFrom-Json -ErrorAction Stop
 
-        if ($cache.SchemaVersion -in @(1, 2) -and $null -ne $cache.Procedures) {
+        if ($cache.SchemaVersion -ge 2 -and $null -ne $cache.Procedures) {
             $script:CmisStoredProcedures = @(
                 $cache.Procedures |
                     ForEach-Object { [string]$_ } |
