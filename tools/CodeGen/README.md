@@ -185,3 +185,14 @@ cmis generate dal [<ProcedureName>] [--module <MODULE>]
 ```
 
 There is no `cmis g` alias; use the explicit `cmis generate` command.
+
+
+### Name filtering
+
+The procedure and TVP name arguments support wildcard-based filtering:
+
+- `*pipe.saveline*`: contains `pipe.saveline`
+- `pipe.*`: starts with `pipe.`
+- `*List`: ends with `List`
+
+Without wildcards, partial names use contains matching, while an exact full name is selected directly.
