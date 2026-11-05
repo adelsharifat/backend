@@ -44,6 +44,34 @@ To uninstall:
 dotnet tool uninstall --global Cmis.CodeGen
 ```
 
+## PowerShell tab completion
+
+The repository includes a native PowerShell argument completer for `cmis`. It provides command, subcommand, option and module suggestions; PowerShell handles cycling through suggestions with repeated Tab presses.
+
+Load it in the current session:
+
+```powershell
+. ./tools/CodeGen/PowerShell/CmisCompletion.ps1
+```
+
+To load it automatically in every PowerShell session, add the following to your profile:
+
+```powershell
+$completionScript = (Resolve-Path ./tools/CodeGen/PowerShell/CmisCompletion.ps1).Path
+Add-Content -Path $PROFILE -Value ". '$completionScript'"
+```
+
+For dynamic stored-procedure suggestions after `cmis generate dal`, install the optional `SqlServer` PowerShell module and set `CMIS_CODEGEN_CONNECTION_STRING` in the current session. The completer queries visible procedures from the connected database. Without those prerequisites, command and option completion still work; the saved DPAPI connection is not read or exposed by the completion script.
+
+Examples:
+
+```powershell
+cmis <Tab>
+cmis generate <Tab>
+cmis generate dal <Tab>
+cmis generate dal PIPE.SaveLineList --module <Tab>
+```
+
 ## Module context
 
 The active module is stored per Windows user in:
