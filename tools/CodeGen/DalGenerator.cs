@@ -10,7 +10,7 @@ internal static class DalGenerator
             p.parameter_id, p.name, p.is_output, t.name AS type_name,
             SCHEMA_NAME(t.schema_id) AS type_schema,
             p.max_length, p.precision, p.scale,
-            ip.PARAMETER_MODE, t.is_table_type, p.is_nullable
+            ip.PARAMETER_MODE, t.is_table_type, OBJECT_DEFINITION(p.object_id)
         FROM sys.parameters p
         JOIN sys.types t ON t.user_type_id = p.user_type_id
         LEFT JOIN INFORMATION_SCHEMA.PARAMETERS ip
@@ -191,8 +191,137 @@ internal static class DalGenerator
                 reader.IsDBNull(4) ? "sys" : reader.GetString(4),
                 reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7),
                 mode.Equals("INOUT", StringComparison.OrdinalIgnoreCase) || mode.Equals("IN/OUT", StringComparison.OrdinalIgnoreCase),
-                reader.GetBoolean(2), isTvp, reader.GetBoolean(10)));
+                reader.GetBoolean(2), isTvp,
+                !isTvp && HasNullDefault(reader.IsDBNull(10) ? null : reader.GetString(10), reader.GetString(1))));
         }
+        return result;
+    }
+
+    private static bool HasNullDefault(string? definition, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(definition))
+            return false;
+
+        // Locate the procedure parameter list from its first parameter through AS,
+        // then split declarations on commas that are not inside expressions.
+        var firstParameter = Regex.Match(definition, @"(?<![A-Za-z0-9_])@" + Regex.Escape(parameterName) + @"\b",
+            RegexOptions.IgnoreCase);
+        if (!firstParameter.Success)
+            return false;
+
+        var asPosition = FindProcedureAs(definition, firstParameter.Index);
+        if (asPosition < 0)
+            return false;
+
+        var declarations = SplitParameterDeclarations(definition[firstParameter.Index..asPosition]);
+        foreach (var declaration in declarations)
+        {
+            var nameMatch = Regex.Match(declaration, @"^\s*@(?<name>[A-Za-z_][A-Za-z0-9_]*)\b",
+                RegexOptions.IgnoreCase);
+            if (!nameMatch.Success ||
+                !nameMatch.Groups["name"].Value.Equals(parameterName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var equals = declaration.IndexOf('=');
+            if (equals < 0)
+                return false;
+
+            var defaultExpression = declaration[(equals + 1)..].Trim();
+            return Regex.IsMatch(defaultExpression, @"^NULL\b", RegexOptions.IgnoreCase);
+        }
+
+        return false;
+    }
+
+    private static int FindProcedureAs(string sql, int start)
+    {
+        var inString = false;
+        var inLineComment = false;
+        var inBlockComment = false;
+        var bracketDepth = 0;
+
+        for (var i = start; i < sql.Length; i++)
+        {
+            var ch = sql[i];
+            var next = i + 1 < sql.Length ? sql[i + 1] : '\0';
+
+            if (inLineComment)
+            {
+                if (ch == '\n') inLineComment = false;
+                continue;
+            }
+            if (inBlockComment)
+            {
+                if (ch == '*' && next == '/') { inBlockComment = false; i++; }
+                continue;
+            }
+            if (inString)
+            {
+                if (ch == '\'' && next == '\'') { i++; continue; }
+                if (ch == '\'') inString = false;
+                continue;
+            }
+            if (ch == '-' && next == '-') { inLineComment = true; i++; continue; }
+            if (ch == '/' && next == '*') { inBlockComment = true; i++; continue; }
+            if (ch == '\'') { inString = true; continue; }
+            if (ch == '[') { bracketDepth++; continue; }
+            if (ch == ']' && bracketDepth > 0) { bracketDepth--; continue; }
+
+            if (bracketDepth == 0 && i + 1 < sql.Length &&
+                (ch == 'A' || ch == 'a') && (sql[i + 1] == 'S' || sql[i + 1] == 's') &&
+                (i == 0 || !char.IsLetterOrDigit(sql[i - 1]) && sql[i - 1] != '_') &&
+                (i + 2 == sql.Length || !char.IsLetterOrDigit(sql[i + 2]) && sql[i + 2] != '_'))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static List<string> SplitParameterDeclarations(string declarations)
+    {
+        var result = new List<string>();
+        var start = 0;
+        var depth = 0;
+        var inString = false;
+        var inLineComment = false;
+        var inBlockComment = false;
+
+        for (var i = 0; i < declarations.Length; i++)
+        {
+            var ch = declarations[i];
+            var next = i + 1 < declarations.Length ? declarations[i + 1] : '\0';
+
+            if (inLineComment)
+            {
+                if (ch == '\n') inLineComment = false;
+                continue;
+            }
+            if (inBlockComment)
+            {
+                if (ch == '*' && next == '/') { inBlockComment = false; i++; }
+                continue;
+            }
+            if (inString)
+            {
+                if (ch == '\'' && next == '\'') { i++; continue; }
+                if (ch == '\'') inString = false;
+                continue;
+            }
+            if (ch == '-' && next == '-') { inLineComment = true; i++; continue; }
+            if (ch == '/' && next == '*') { inBlockComment = true; i++; continue; }
+            if (ch == '\'') { inString = true; continue; }
+            if (ch == '(') { depth++; continue; }
+            if (ch == ')' && depth > 0) { depth--; continue; }
+
+            if (ch == ',' && depth == 0)
+            {
+                result.Add(declarations[start..i]);
+                start = i + 1;
+            }
+        }
+
+        if (start < declarations.Length)
+            result.Add(declarations[start..]);
         return result;
     }
 
