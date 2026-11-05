@@ -200,4 +200,4 @@ Without wildcards, partial names use contains matching, while an exact full name
 
 ### Nullable procedure parameters
 
-DAL request and response properties use SQL Server parameter metadata (`sys.parameters.is_nullable`) to determine whether scalar parameter types are emitted as nullable C# types. TVP row-column nullability continues to come from `sys.columns.is_nullable`.
+DAL request and response properties detect explicit `= NULL` defaults from the stored procedure definition (`OBJECT_DEFINITION`). Scalar parameters declared with `= NULL` are emitted as nullable C# types; parameters without that default are emitted as non-nullable types. SQL Server's `sys.parameters.is_nullable` is not used for this distinction because it does not reliably represent this declaration-level intent for T-SQL procedure parameters. TVP row-column nullability continues to come from `sys.columns.is_nullable`.
