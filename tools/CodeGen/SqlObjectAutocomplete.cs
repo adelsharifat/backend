@@ -107,7 +107,20 @@ internal static class SqlObjectAutocomplete
                 return selected;
             }
 
-            if (key.Key == ConsoleKey.UpArrow)
+            if (key.Key == ConsoleKey.Tab)
+            {
+                if (matches.Count == 0)
+                {
+                    Console.Beep();
+                    continue;
+                }
+
+                // Complete to the currently highlighted (best-ranked) suggestion.
+                // The user can press Tab again after editing the filter to choose another match.
+                filter = matches[selectedIndex];
+                selectedIndex = 0;
+            }
+            else if (key.Key == ConsoleKey.UpArrow)
             {
                 if (matches.Count > 0)
                     selectedIndex = (selectedIndex - 1 + matches.Count) % matches.Count;
