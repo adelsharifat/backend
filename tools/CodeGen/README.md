@@ -46,7 +46,7 @@ dotnet tool uninstall --global Cmis.CodeGen
 
 ## PowerShell tab completion
 
-The repository includes a native PowerShell argument completer for `cmis`. It provides command, subcommand, option and module suggestions. PowerShell handles cycling through suggestions with repeated Tab presses.
+The repository includes a native PowerShell argument completer for `cmis`. It provides command, subcommand, option, module, stored-procedure and TVP suggestions. PowerShell handles cycling through suggestions with repeated Tab presses.
 
 Load it in the current session from the repository root:
 
@@ -63,7 +63,7 @@ Add-Content -Path $PROFILE -Value ". '$completionScript'"
 
 ### Stored-procedure suggestions (optional)
 
-Tab completion is deliberately **local-only**. Pressing Tab never imports a module, opens a SQL connection, or reads a file. Static commands/options are available immediately. Stored-procedure names are read from a local cache loaded once when the completion script is dot-sourced.
+Tab completion is deliberately **local-only**. Pressing Tab never imports a module, opens a SQL connection, or reads a file. Static commands/options are available immediately. Stored-procedure and TVP names are read from a local cache loaded once when the completion script is dot-sourced.
 
 To populate or refresh that cache, install the optional `SqlServer` module and provide a connection string:
 
@@ -79,13 +79,13 @@ Alternatively, pass the connection string directly to the refresh command:
 Update-CmisCompletionCache -ConnectionString "Server=...;Database=...;Integrated Security=True;TrustServerCertificate=True"
 ```
 
-The cache is saved at:
+The cache contains both stored procedures and user-defined table types and is saved at:
 
 ```text
 %LOCALAPPDATA%\CMIS\CodeGen\completions.json
 ```
 
-Refresh it when procedures change. The refresh command queries procedures visible to the supplied SQL login; it does not store the connection string. The refresh command updates the current session immediately and writes the cache for future sessions. Newly opened PowerShell sessions load the saved list automatically when the profile dot-sources the script. If SQL Server is unavailable, static completion continues to work.
+Refresh it when stored procedures or TVP types change. The refresh command queries objects visible to the supplied SQL login; it does not store the connection string. The refresh command updates the current session immediately and writes the cache for future sessions. Newly opened PowerShell sessions load the saved list automatically when the profile dot-sources the script. If SQL Server is unavailable, static completion continues to work.
 
 Examples:
 
@@ -151,7 +151,7 @@ cmis generate tvp --schema PIPE
 cmis generate tvp QCPIPE.FitupItems
 ```
 
-Pass a TVP as a positional `Schema.Type` argument (for example, `cmis generate tvp PIPE.Linestype`). In an interactive terminal, omitting the type opens the picker; `--schema` optionally filters the picker. Passing `--type` also skips the picker. The default output is `Models/TvpContracts.g.cs` when run inside a module project, or `CMIS.<MODULE>/Models/TvpContracts.g.cs` from the repository root when an active module is set. The default namespace is `CMIS.<MODULE>.Models` when a module is known. Override the output or namespace with `--output` or `--namespace`. When input or output is redirected and the type is omitted, the generator retains its batch behavior and generates all matching user-defined table types.
+Pass a TVP as a positional `Schema.Type` argument (for example, `cmis generate tvp PIPE.Linestype`). In an interactive terminal, omitting the type prompts for a name. Press Enter on an empty prompt to display a numbered list, then enter a number or a name; `--schema` filters that list. PowerShell Tab completion is also available before running the command (`cmis generate tvp <Tab>`). Passing `--type` also skips the prompt. The default output is `Models/TvpContracts.g.cs` when run inside a module project, or `CMIS.<MODULE>/Models/TvpContracts.g.cs` from the repository root when an active module is set. The default namespace is `CMIS.<MODULE>.Models` when a module is known. Override the output or namespace with `--output` or `--namespace`. When input or output is redirected and the type is omitted, the generator retains its batch behavior and generates all matching user-defined table types.
 
 Connection resolution order is: explicit `--connection-string`, `CMIS_CODEGEN_CONNECTION_STRING`, then the value saved by `cmis connection set`.
 
@@ -159,7 +159,7 @@ Generated DTO properties preserve SQL column names using `[JsonPropertyName]`. E
 
 ### DAL generator
 
-The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (`PipeDal`, `QcpipeDal`, …). If the procedure name is omitted, an interactive picker loads visible stored procedures from SQL Server; typing filters the list locally, and the arrow keys/Enter select an item. The interactive picker uses the terminal alternate screen to isolate redraws from prior command output and prevent scrolling from corrupting the display.
+The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (`PipeDal`, `QcpipeDal`, …). If the procedure name is omitted, the CLI prompts for a name. Press Enter on an empty prompt to display a numbered list of visible procedures, then enter a number or a name. You can also use PowerShell Tab completion before running the command (`cmis generate dal <Tab>`).
 
 ```powershell
 cmis generate dal
