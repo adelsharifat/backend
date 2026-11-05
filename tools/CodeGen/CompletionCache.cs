@@ -101,15 +101,42 @@ internal static class CompletionCache
 
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync();
+
+        var currentProcedures = await ReadNamesAsync(connection, ProceduresQuery);
+        var currentTableTypes = await ReadNamesAsync(connection, TableTypesQuery);
+
         await using var command = new SqlCommand(LatestObjectModifyDateQuery, connection);
         var value = await command.ExecuteScalarAsync();
         var latestModifyDate = value is DBNull or null ? (DateTime?)null : (DateTime)value;
 
-        if (latestModifyDate.HasValue && latestModifyDate.Value > cache.DatabaseCheckedAt)
+        var proceduresChanged = !SameNames(currentProcedures, cache.Procedures);
+        var tableTypesChanged = !SameNames(currentTableTypes, cache.TableTypes);
+        var objectsModified = latestModifyDate.HasValue &&
+            latestModifyDate.Value > cache.DatabaseCheckedAt;
+
+        if (proceduresChanged || tableTypesChanged || objectsModified)
         {
             Console.WriteLine("SQL procedure/TVP metadata has changed. Refreshing completion cache...");
             await SyncAsync(connectionString);
         }
+    }
+
+    private static async Task<string[]> ReadNamesAsync(SqlConnection connection, string query)
+    {
+        var names = new List<string>();
+        await using var command = new SqlCommand(query, connection);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+            names.Add(reader.GetString(0));
+
+        return names.ToArray();
+    }
+
+    private static bool SameNames(IEnumerable<string> current, IEnumerable<string> cached)
+    {
+        var currentSet = new HashSet<string>(current, StringComparer.OrdinalIgnoreCase);
+        var cachedSet = new HashSet<string>(cached, StringComparer.OrdinalIgnoreCase);
+        return currentSet.SetEquals(cachedSet);
     }
 
     public static Task<string?> SelectStoredProcedureAsync(string? partialName, string? schemaFilter = null) =>
