@@ -45,73 +45,42 @@ if (Test-Path -LiteralPath $script:CmisCompletionCachePath -PathType Leaf) {
 
 function Update-CmisCompletionCache {
     [CmdletBinding()]
-    param(
-        [Parameter()]
-        [string]$ConnectionString = $env:CMIS_CODEGEN_CONNECTION_STRING
-    )
+    param()
 
-    if ([string]::IsNullOrWhiteSpace($ConnectionString)) {
-        throw "Provide -ConnectionString or set CMIS_CODEGEN_CONNECTION_STRING before refreshing the cache."
-    }
-    if (-not (Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue)) {
-        throw "The optional SqlServer PowerShell module is required. Install it with: Install-Module SqlServer -Scope CurrentUser"
+    if (-not (Get-Command cmis -ErrorAction SilentlyContinue)) {
+        throw "The cmis CLI is not installed or is not available on PATH."
     }
 
-    $procedureQuery = @'
-SELECT s.name + N'.' + p.name AS ObjectName
-FROM sys.procedures AS p
-JOIN sys.schemas AS s ON s.schema_id = p.schema_id
-ORDER BY s.name, p.name;
-'@
-
-    $tableTypeQuery = @'
-SELECT s.name + N'.' + tt.name AS ObjectName
-FROM sys.table_types AS tt
-JOIN sys.schemas AS s ON s.schema_id = tt.schema_id
-WHERE tt.is_user_defined = 1
-ORDER BY s.name, tt.name;
-'@
-
-    # SQL runs only when the user explicitly invokes this refresh function.
-    $procedures = @(
-        Invoke-Sqlcmd -ConnectionString $ConnectionString -Query $procedureQuery -QueryTimeout 15 -ConnectionTimeout 5 -ErrorAction Stop |
-            ForEach-Object { [string]$_.ObjectName } |
-            Where-Object { $_ -match '^[^.\s]+\.[^.\s]+$' } |
-            Sort-Object -Unique
-    )
-
-    $tableTypes = @(
-        Invoke-Sqlcmd -ConnectionString $ConnectionString -Query $tableTypeQuery -QueryTimeout 15 -ConnectionTimeout 5 -ErrorAction Stop |
-            ForEach-Object { [string]$_.ObjectName } |
-            Where-Object { $_ -match '^[^.\s]+\.[^.\s]+$' } |
-            Sort-Object -Unique
-    )
-
-    $directory = Split-Path -Parent $script:CmisCompletionCachePath
-    New-Item -ItemType Directory -Path $directory -Force -ErrorAction Stop | Out-Null
-
-    $cache = [ordered]@{
-        SchemaVersion = 2
-        UpdatedAtUtc  = [DateTime]::UtcNow.ToString('o')
-        Procedures    = @($procedures)
-        TableTypes    = @($tableTypes)
+    & cmis sync
+    if ($LASTEXITCODE -ne 0) {
+        throw "cmis sync failed (exit code $LASTEXITCODE). The existing completion cache was not changed."
     }
 
-    $temporaryPath = "$($script:CmisCompletionCachePath).tmp"
     try {
-        $cache | ConvertTo-Json -Depth 4 |
-            Set-Content -LiteralPath $temporaryPath -Encoding UTF8 -ErrorAction Stop
-        Move-Item -LiteralPath $temporaryPath -Destination $script:CmisCompletionCachePath -Force -ErrorAction Stop
-    }
-    finally {
-        if (Test-Path -LiteralPath $temporaryPath) {
-            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        $cache = Get-Content -LiteralPath $script:CmisCompletionCachePath -Raw -ErrorAction Stop |
+            ConvertFrom-Json -ErrorAction Stop
+        if ($cache.SchemaVersion -lt 2) {
+            throw "Unsupported completion cache version."
         }
+
+        $script:CmisStoredProcedures = @(
+            $cache.Procedures |
+                ForEach-Object { [string]$_ } |
+                Where-Object { $_ -match '^[^\.\s]+\.[^\.\s]+$' } |
+                Sort-Object -Unique
+        )
+        $script:CmisTableTypes = @(
+            $cache.TableTypes |
+                ForEach-Object { [string]$_ } |
+                Where-Object { $_ -match '^[^\.\s]+\.[^\.\s]+$' } |
+                Sort-Object -Unique
+        )
+    }
+    catch {
+        throw "The cache was synced, but could not be loaded into this PowerShell session: $($_.Exception.Message)"
     }
 
-    $script:CmisStoredProcedures = @($procedures)
-    $script:CmisTableTypes = @($tableTypes)
-    Write-Host "CMIS completion cache updated: $($procedures.Count) stored procedures and $($tableTypes.Count) TVP types."
+    Write-Host "CMIS completion cache loaded: $($script:CmisStoredProcedures.Count) stored procedures and $($script:CmisTableTypes.Count) TVP types."
 }
 
 Register-ArgumentCompleter -Native -CommandName cmis -ScriptBlock {
