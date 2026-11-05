@@ -139,7 +139,7 @@ internal static class SqlObjectAutocomplete
                     filter = filter[..^1];
                 selectedIndex = 0;
             }
-            else if (!char.IsControl(key.KeyChar) && key.KeyChar != '\\0')
+            else if (!char.IsControl(key.KeyChar) && key.KeyChar != '\0')
             {
                 filter += key.KeyChar;
                 selectedIndex = 0;
