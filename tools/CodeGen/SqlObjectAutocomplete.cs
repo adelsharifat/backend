@@ -58,6 +58,7 @@ internal static class SqlObjectAutocomplete
         var promptTop = Console.CursorTop;
         Console.Write(prompt);
         var promptLeft = Console.CursorLeft;
+        Console.WriteLine(); // Keep the input on its own row; suggestions render below it.
         var suggestionsTop = Console.CursorTop;
         var filter = string.Empty;
         var selectedIndex = 0;
