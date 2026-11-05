@@ -60,12 +60,6 @@ internal static class DalGenerator
         }
 
         string? Option(string name) => options.GetValueOrDefault(name);
-        if (string.IsNullOrWhiteSpace(procedure))
-        {
-            Console.Error.WriteLine("Usage: cmis generate dal <ProcedureName> [--module <MODULE>] [--schema <SCHEMA>] [--output <FILE>]");
-            return 2;
-        }
-
         var module = (Option("module") ?? activeModule ?? DetectModuleFromCurrentDirectory())?.Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(module))
         {
@@ -78,20 +72,27 @@ internal static class DalGenerator
             return 2;
         }
 
-        var (schema, procName) = SplitProcedure(procedure, Option("schema") ?? module);
-        if (!Regex.IsMatch(schema, "^[A-Za-z_][A-Za-z0-9_]*$") ||
-            !Regex.IsMatch(procName, "^[A-Za-z_][A-Za-z0-9_]*$"))
-        {
-            Console.Error.WriteLine("Procedure name must be [schema.]ProcedureName.");
-            return 2;
-        }
-
         var cs = Option("connection-string")
             ?? Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING")
             ?? savedConnectionString;
         if (string.IsNullOrWhiteSpace(cs))
         {
             Console.Error.WriteLine("Run 'cmis connection set', set CMIS_CODEGEN_CONNECTION_STRING, or pass --connection-string.");
+            return 2;
+        }
+
+        if (string.IsNullOrWhiteSpace(procedure))
+        {
+            procedure = await SqlObjectAutocomplete.SelectStoredProcedureAsync(cs, Option("schema"));
+            if (string.IsNullOrWhiteSpace(procedure))
+                return 130;
+        }
+
+        var (schema, procName) = SplitProcedure(procedure, Option("schema") ?? module);
+        if (!Regex.IsMatch(schema, "^[A-Za-z_][A-Za-z0-9_]*$") ||
+            !Regex.IsMatch(procName, "^[A-Za-z_][A-Za-z0-9_]*$"))
+        {
+            Console.Error.WriteLine("Procedure name must be [schema.]ProcedureName.");
             return 2;
         }
 
@@ -385,8 +386,9 @@ internal static class DalGenerator
     };
     private static string Literal(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
     private static void Help() => Console.WriteLine("""
-        Usage: cmis generate dal <ProcedureName> [--module PIPE] [--schema PIPE]
+        Usage: cmis generate dal [<ProcedureName>] [--module PIPE] [--schema PIPE]
                [--output CMIS.PIPE/Data/SaveLineList.g.cs]
+        Omit ProcedureName to search and select a stored procedure from SQL Server metadata.
         ProcedureName may be Procedure or schema.Procedure.
         Module defaults to the saved active module, then to a current directory named CMIS.<MODULE>. Schema defaults to the module name.
         """);

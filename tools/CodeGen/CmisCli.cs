@@ -338,7 +338,7 @@ internal static class CmisCli
           cmis connection test
           cmis connection clear
           cmis generate tvp [options]
-          cmis generate dal <ProcedureName> [--module <MODULE>]
+          cmis generate dal [<ProcedureName>] [--module <MODULE>]
 
         Global options:
           -h, --help       Show help
@@ -350,7 +350,7 @@ internal static class CmisCli
     private static void PrintGenerateHelp() => Console.WriteLine("""
         Generate commands:
           cmis generate tvp [options]
-          cmis generate dal <ProcedureName> [--module <MODULE>]
+          cmis generate dal [<ProcedureName>] [--module <MODULE>]
 
         The TVP generator can be used independently. DAL generation reads stored procedure and TVP metadata from SQL Server.
         """);
