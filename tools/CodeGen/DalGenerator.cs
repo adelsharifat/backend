@@ -94,7 +94,10 @@ internal static class DalGenerator
             }
 
             if (string.IsNullOrWhiteSpace(procedure))
+            {
+                Console.WriteLine("Selection cancelled.");
                 return 130;
+            }
         }
 
         var (schema, procName) = SplitProcedure(procedure, Option("schema") ?? module);
@@ -397,7 +400,7 @@ internal static class DalGenerator
     private static void Help() => Console.WriteLine("""
         Usage: cmis generate dal [<ProcedureName>] [--module PIPE] [--schema PIPE]
                [--output CMIS.PIPE/Data/SaveLineList.g.cs]
-        Omit ProcedureName to search and select a stored procedure from SQL Server metadata.
+        Omit ProcedureName to enter a name, or press Enter to list available procedures and select by number or name.
         ProcedureName may be Procedure or schema.Procedure.
         Module defaults to the saved active module, then to a current directory named CMIS.<MODULE>. Schema defaults to the module name.
         """);
