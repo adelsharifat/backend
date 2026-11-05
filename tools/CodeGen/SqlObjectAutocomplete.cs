@@ -16,7 +16,10 @@ internal static class SqlObjectAutocomplete
     public static async Task<string?> SelectStoredProcedureAsync(string connectionString, string? schemaFilter = null)
     {
         if (Console.IsInputRedirected || Console.IsOutputRedirected)
-            throw new InvalidOperationException("Interactive procedure selection requires a terminal. Pass the procedure name as an argument.");
+        {
+            Console.Error.WriteLine("Interactive procedure selection requires a terminal. Pass the procedure name as an argument.");
+            return null;
+        }
 
         var procedures = new List<string>();
         await using (var connection = new SqlConnection(connectionString))
