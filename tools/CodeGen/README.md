@@ -151,7 +151,7 @@ cmis generate tvp --schema PIPE
 cmis generate tvp --schema QCPIPE --type FitupItems
 ```
 
-Options: `--schema`, `--type`, `--namespace`, `--output`, `--connection-string`. In an interactive terminal, omitting `--type` opens the TVP picker; typing filters the list, and the arrow keys/Enter select a table type. An optional `--schema` limits the picker. Passing `--type` skips the picker. When input or output is redirected and `--type` is omitted, the generator keeps its batch behavior and generates all matching user-defined table types.
+The default output is `Models/TvpContracts.g.cs`, keeping generated contracts with the module models. Override it with `--output` when needed. Options: `--schema`, `--type`, `--namespace`, `--output`, `--connection-string`. In an interactive terminal, omitting `--type` opens the TVP picker; typing filters the list, and the arrow keys/Enter select a table type. An optional `--schema` limits the picker. Passing `--type` skips the picker. When input or output is redirected and `--type` is omitted, the generator keeps its batch behavior and generates all matching user-defined table types.
 
 Connection resolution order is: explicit `--connection-string`, `CMIS_CODEGEN_CONNECTION_STRING`, then the value saved by `cmis connection set`.
 
