@@ -196,3 +196,8 @@ The procedure and TVP name arguments support wildcard-based filtering:
 - `*List`: ends with `List`
 
 Without wildcards, partial names use contains matching, while an exact full name is selected directly.
+
+
+### Nullable procedure parameters
+
+DAL request and response properties use SQL Server parameter metadata (`sys.parameters.is_nullable`) to determine whether scalar parameter types are emitted as nullable C# types. TVP row-column nullability continues to come from `sys.columns.is_nullable`.
