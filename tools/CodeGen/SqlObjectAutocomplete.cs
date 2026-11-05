@@ -68,8 +68,6 @@ internal static class SqlObjectAutocomplete
             _ => $"{objectLabel}: "
         };
         const string hint = "Type to filter | Up/Down navigate | Enter select | Esc cancel";
-
-        const string hint = "Type to filter | Up/Down navigate | Enter select | Esc cancel";
         const int suggestionRows = MaxSuggestions + 2;
 
         // Always redraw relative to the live cursor. Absolute rows become stale when the
