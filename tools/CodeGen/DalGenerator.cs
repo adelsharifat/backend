@@ -348,7 +348,7 @@ internal static class DalGenerator
         Identifier(parameter.TypeSchema + "_" + parameter.TypeName);
     private static string ParameterClr(Parameter p) => p.IsTvp
         ? $"IReadOnlyList<{TvpRowName(p)}>"
-        : Clr(p.SqlType, true);
+        : Clr(p.SqlType, p.IsNullable);
     private static string Clr(string sql, bool nullable) => ClrBase(sql) + (nullable && ClrBase(sql) is not "string" and not "byte[]" ? "?" : nullable ? "?" : "");
     private static string ClrBase(string sql) => sql.ToLowerInvariant() switch
     {
