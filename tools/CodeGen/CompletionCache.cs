@@ -175,12 +175,20 @@ internal static class CompletionCache
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var exact = candidates.FirstOrDefault(name => name.Equals(query, StringComparison.OrdinalIgnoreCase));
-        if (exact is not null)
-            return exact;
+        var hasLeadingWildcard = query.StartsWith('*');
+        var hasTrailingWildcard = query.EndsWith('*');
+        var filter = query.Trim('*');
+
+        if (!hasLeadingWildcard && !hasTrailingWildcard)
+        {
+            var exact = candidates.FirstOrDefault(name =>
+                name.Equals(query, StringComparison.OrdinalIgnoreCase));
+            if (exact is not null)
+                return exact;
+        }
 
         candidates = candidates
-            .Where(name => name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Where(name => MatchesFilter(name, filter, hasLeadingWildcard, hasTrailingWildcard))
             .ToArray();
 
         if (candidates.Length == 0)
@@ -229,6 +237,24 @@ internal static class CompletionCache
 
         Console.Error.WriteLine("Enter one of the listed numbers or the complete schema-qualified name.");
         return null;
+    }
+
+    private static bool MatchesFilter(
+        string name,
+        string filter,
+        bool hasLeadingWildcard,
+        bool hasTrailingWildcard)
+    {
+        if (hasLeadingWildcard && hasTrailingWildcard)
+            return name.Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+        if (hasLeadingWildcard)
+            return name.EndsWith(filter, StringComparison.OrdinalIgnoreCase);
+
+        if (hasTrailingWildcard)
+            return name.StartsWith(filter, StringComparison.OrdinalIgnoreCase);
+
+        return name.Contains(filter, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<CacheDocument?> ReadCacheAsync()
