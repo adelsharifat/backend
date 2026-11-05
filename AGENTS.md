@@ -11,6 +11,7 @@ Before doing **any work** in this repository—analysis, planning, code changes,
 5. After editing, fetch the changed files again and verify that the committed contents match the intended changes.
 6. Run the relevant build and tests when the available environment permits. Clearly report anything that was not run; never claim a build or test passed without actually running it.
 7. Use a feature branch and pull request for repository changes unless the user explicitly asks for another workflow.
+8. **Always merge every pull request you create into `master` after creating it.** Do not leave your PRs open. Use the repository's normal merge method and verify the merge succeeded. Only stop if merging is blocked by failed required checks, conflicts, missing permissions, or another GitHub restriction; explain the blocker clearly. If the user explicitly asks to keep a PR open, follow that instruction instead.
 
 ## Versioning is mandatory
 - Whenever a change modifies the behavior, functionality, or deliverables of a packaged tool or application, review its version before finishing.
