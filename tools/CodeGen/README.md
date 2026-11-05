@@ -83,7 +83,7 @@ The cache contains both stored procedures and user-defined table types and is sa
 %LOCALAPPDATA%\CMIS\CodeGen\completions.json
 ```
 
-The refresh command queries objects visible to the configured SQL login. It replaces the cache only after both metadata queries succeed; if SQL Server is unavailable or permissions are insufficient, the previous cache remains intact. No additional PowerShell SQL module is required.
+The refresh command queries objects visible to the configured SQL login. Before each DAL or TVP generation, CodeGen checks SQL Server's `modify_date` for stored procedures and table types; if any object is newer than the cache's database-check timestamp, it automatically refreshes the cache in the background. The cache is replaced only after both metadata queries succeed; if SQL Server is unavailable or permissions are insufficient, the previous cache remains intact. No additional PowerShell SQL module is required.
 
 Examples:
 
@@ -149,7 +149,7 @@ cmis generate tvp --schema PIPE
 cmis generate tvp QCPIPE.FitupItems
 ```
 
-Pass a TVP as a positional `Schema.Type` argument (for example, `cmis generate tvp PIPE.Linestype`). In an interactive terminal, omitting the type prompts for a name. Press Enter on an empty prompt to display a numbered list, then enter a number or a name; `--schema` filters that list. PowerShell Tab completion is also available before running the command (`cmis generate tvp <Tab>`). Passing `--type` also skips the prompt. The default output is `Models/TvpContracts.g.cs` when run inside a module project, or `CMIS.<MODULE>/Models/TvpContracts.g.cs` from the repository root when an active module is set. The default namespace is `CMIS.<MODULE>.Models` when a module is known. Override the output or namespace with `--output` or `--namespace`. When input or output is redirected and the type is omitted, the generator retains its batch behavior and generates all matching user-defined table types.
+Pass a TVP as a positional `Schema.Type` argument (for example, `cmis generate tvp PIPE.Linestype`). A supplied name may be a full name or any partial text; matching names are read from the local cache and displayed for selection. Omitting the type displays the cached list. `--schema` filters unqualified searches. PowerShell Tab completion is also available before running the command (`cmis generate tvp <Tab>`). Passing `--type` also skips the prompt. Each TVP is generated into its own file named `<Schema>_<Type>.g.cs` under the module's `Models/` directory. For example, `PIPE_LineItems.g.cs`. `--output` can specify a file for one selected TVP or a directory when generating multiple TVPs. The default namespace is `CMIS.<MODULE>.Models` when a module is known. Override the output or namespace with `--output` or `--namespace`. When input or output is redirected and the type is omitted, the generator retains its batch behavior and generates all matching user-defined table types.
 
 Connection resolution order is: explicit `--connection-string`, `CMIS_CODEGEN_CONNECTION_STRING`, then the value saved by `cmis connection set`.
 
@@ -157,7 +157,7 @@ Generated DTO properties preserve SQL column names using `[JsonPropertyName]`. E
 
 ### DAL generator
 
-The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (`PipeDal`, `QcpipeDal`, …). If the procedure name is omitted, the CLI prompts for a name. Press Enter on an empty prompt to display a numbered list of visible procedures, then enter a number or a name. You can also use PowerShell Tab completion before running the command (`cmis generate dal <Tab>`).
+The DAL generator reads procedure parameters and TVP column metadata from SQL Server and emits a procedure-specific Request/Response contract plus a method in the module's partial DAL class (`PipeDal`, `QcpipeDal`, …). A supplied procedure name may be a full name or partial text (for example, `cmis generate dal pipe.savelin`); matching names are read from the local cache and displayed for selection. Omitting the name displays the cached list. PowerShell Tab completion is also available before running the command (`cmis generate dal <Tab>`).
 
 ```powershell
 cmis generate dal
