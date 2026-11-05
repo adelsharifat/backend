@@ -18,6 +18,9 @@ internal static class CmisCli
             return 0;
         }
 
+        if (args[0].Equals("sync", StringComparison.OrdinalIgnoreCase))
+            return await HandleSyncAsync(args.Skip(1).ToArray());
+
         if (args[0].Equals("module", StringComparison.OrdinalIgnoreCase))
             return HandleModule(args.Skip(1).ToArray());
 
@@ -87,6 +90,48 @@ internal static class CmisCli
         Console.Error.WriteLine($"Unknown command '{args[0]}'.");
         PrintHelp();
         return 2;
+    }
+
+    private static async Task<int> HandleSyncAsync(string[] args)
+    {
+        if (args.Length != 0 || args.Any(argument => argument is "--help" or "-h"))
+        {
+            Console.Error.WriteLine("Usage: cmis sync");
+            return args.Length == 1 && args[0] is "--help" or "-h" ? 0 : 2;
+        }
+
+        string? connectionString = Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            try
+            {
+                connectionString = ConnectionStringStore.Load();
+            }
+            catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            {
+                Console.Error.WriteLine($"Could not read the saved connection ({ex.GetType().Name}). Run 'cmis connection set' again.");
+                return 2;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            Console.Error.WriteLine("No SQL connection is configured. Run 'cmis connection set' first.");
+            return 2;
+        }
+
+        try
+        {
+            var counts = await CompletionCache.SyncAsync(connectionString);
+            Console.WriteLine($"Completion cache updated: {counts.Procedures} stored procedures and {counts.TableTypes} TVP types.");
+            Console.WriteLine("PowerShell: dot-source CmisCompletion.ps1 again to reload suggestions in the current session.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Cache sync failed ({ex.GetType().Name}). The previous cache was kept. Check the SQL connection and metadata permissions.");
+            return 1;
+        }
     }
 
     private static async Task<int> HandleConnectionAsync(string[] args)
