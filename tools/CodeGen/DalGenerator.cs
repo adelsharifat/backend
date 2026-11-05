@@ -81,23 +81,30 @@ internal static class DalGenerator
             return 2;
         }
 
+        try
+        {
+            await CompletionCache.EnsureFreshAsync(cs);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Could not verify/refresh SQL metadata cache ({ex.GetType().Name}). DAL generation was cancelled.");
+            return 1;
+        }
+
+        try
+        {
+            procedure = await CompletionCache.SelectStoredProcedureAsync(procedure, Option("schema") ?? module);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Could not read stored procedures from the local cache ({ex.GetType().Name}).");
+            return 1;
+        }
+
         if (string.IsNullOrWhiteSpace(procedure))
         {
-            try
-            {
-                procedure = await SqlObjectAutocomplete.SelectStoredProcedureAsync(cs, Option("schema"));
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Could not load stored procedures ({ex.GetType().Name}). Check the SQL connection and metadata permissions.");
-                return 1;
-            }
-
-            if (string.IsNullOrWhiteSpace(procedure))
-            {
-                Console.WriteLine("Selection cancelled.");
-                return 130;
-            }
+            Console.WriteLine("Selection cancelled or no matching procedure was found.");
+            return 130;
         }
 
         var (schema, procName) = SplitProcedure(procedure, Option("schema") ?? module);
