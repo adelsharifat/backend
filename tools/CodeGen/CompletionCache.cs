@@ -153,6 +153,13 @@ internal static class CompletionCache
         string prompt,
         string collectionLabel)
     {
+        var query = partialName?.Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            Console.Error.WriteLine($"A {prompt} name is required. Enter part of the name to filter the local cache.");
+            return null;
+        }
+
         var cache = await readCache();
         if (cache is null)
         {
@@ -168,17 +175,13 @@ internal static class CompletionCache
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var query = partialName?.Trim();
-        if (!string.IsNullOrWhiteSpace(query))
-        {
-            var exact = candidates.FirstOrDefault(name => name.Equals(query, StringComparison.OrdinalIgnoreCase));
-            if (exact is not null)
-                return exact;
+        var exact = candidates.FirstOrDefault(name => name.Equals(query, StringComparison.OrdinalIgnoreCase));
+        if (exact is not null)
+            return exact;
 
-            candidates = candidates
-                .Where(name => name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-        }
+        candidates = candidates
+            .Where(name => name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
 
         if (candidates.Length == 0)
         {
@@ -199,9 +202,7 @@ internal static class CompletionCache
         }
 
         Console.WriteLine();
-        Console.WriteLine(string.IsNullOrWhiteSpace(query)
-            ? $"Available {collectionLabel} from local cache:"
-            : $"Matching {collectionLabel} for '{query}':");
+        Console.WriteLine($"Matching {collectionLabel} for '{query}':");
 
         for (var i = 0; i < candidates.Length; i++)
             Console.WriteLine($"  {i + 1,3}. {candidates[i]}");
