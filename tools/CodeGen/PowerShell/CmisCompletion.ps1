@@ -125,7 +125,7 @@ Register-ArgumentCompleter -Native -CommandName cmis -ScriptBlock {
     }
 
     $candidates |
-        Where-Object { $_ -like "$current*" } |
+        Where-Object { $_ -like "*$current*" } |
         Sort-Object -Unique |
         ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
