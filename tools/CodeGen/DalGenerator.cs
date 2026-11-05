@@ -83,7 +83,16 @@ internal static class DalGenerator
 
         if (string.IsNullOrWhiteSpace(procedure))
         {
-            procedure = await SqlObjectAutocomplete.SelectStoredProcedureAsync(cs, Option("schema"));
+            try
+            {
+                procedure = await SqlObjectAutocomplete.SelectStoredProcedureAsync(cs, Option("schema"));
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Could not load stored procedures ({ex.GetType().Name}). Check the SQL connection and metadata permissions.");
+                return 1;
+            }
+
             if (string.IsNullOrWhiteSpace(procedure))
                 return 130;
         }
