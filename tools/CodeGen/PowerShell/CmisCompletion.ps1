@@ -6,7 +6,7 @@ if (-not (Get-Command Register-ArgumentCompleter -ErrorAction SilentlyContinue))
     return
 }
 
-$script:CmisCompletionCommands = @('module', 'connection', 'generate', '--help', '-h')
+$script:CmisCompletionCommands = @('module', 'connection', 'generate', 'sync', '--help', '-h')
 $script:CmisModules = @('DCC', 'CIVIL', 'QCCV', 'PIPE', 'QCPIPE')
 $script:CmisCompletionCachePath = Join-Path $env:LOCALAPPDATA 'CMIS\CodeGen\completions.json'
 $script:CmisStoredProcedures = @()
