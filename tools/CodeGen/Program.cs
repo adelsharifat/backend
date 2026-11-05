@@ -19,9 +19,10 @@ internal static class Generator
         ORDER BY s.name, tt.name, c.column_id;
         """;
 
-    public static async Task<int> RunAsync(string[] args, string? savedConnectionString = null)
+    public static async Task<int> RunAsync(string[] args, string? savedConnectionString = null, string? activeModule = null)
     {
         var options = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        string? positionalType = null;
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i] is "--help" or "-h")
@@ -29,9 +30,20 @@ internal static class Generator
                 Help();
                 return 0;
             }
-            if (!args[i].StartsWith("--") || i + 1 >= args.Length)
+            if (!args[i].StartsWith("--", StringComparison.Ordinal))
             {
-                Console.Error.WriteLine($"Invalid option: {args[i]}");
+                if (positionalType is not null)
+                {
+                    Console.Error.WriteLine($"Unexpected argument: {args[i]}");
+                    Help();
+                    return 2;
+                }
+                positionalType = args[i];
+                continue;
+            }
+            if (i + 1 >= args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine($"Missing value for {args[i]}.");
                 Help();
                 return 2;
             }
@@ -40,6 +52,31 @@ internal static class Generator
 
         string? Option(string name, string? fallback = null) =>
             options.TryGetValue(name, out var value) ? value : fallback;
+
+        if (positionalType is not null && Option("type") is not null)
+        {
+            Console.Error.WriteLine("Specify the TVP either as a positional name or with --type, not both.");
+            return 2;
+        }
+
+        if (positionalType is not null)
+        {
+            var parts = positionalType.Split('.', 2);
+            if (parts.Length == 2)
+            {
+                if (Option("schema") is not null && !Option("schema")!.Equals(parts[0], StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.Error.WriteLine("The schema in the TVP name conflicts with --schema.");
+                    return 2;
+                }
+                options["schema"] = parts[0];
+                options["type"] = parts[1];
+            }
+            else
+            {
+                options["type"] = positionalType;
+            }
+        }
 
         var cs = Option("connection-string") ?? Environment.GetEnvironmentVariable("CMIS_CODEGEN_CONNECTION_STRING") ?? savedConnectionString;
         if (string.IsNullOrWhiteSpace(cs))
@@ -69,8 +106,17 @@ internal static class Generator
             options["type"] = parts[1];
         }
 
-        var output = Path.GetFullPath(Option("output", "Models/TvpContracts.g.cs")!);
-        var ns = Option("namespace", "CMIS.Generated.Tvp")!;
+        var module = (activeModule ?? DetectModuleFromCurrentDirectory())?.Trim().ToUpperInvariant();
+        var isModuleDirectory = !string.IsNullOrWhiteSpace(module) &&
+            Path.GetFileName(Environment.CurrentDirectory).Equals("CMIS." + module, StringComparison.OrdinalIgnoreCase);
+        var defaultOutput = string.IsNullOrWhiteSpace(module)
+            ? Path.Combine("Models", "TvpContracts.g.cs")
+            : isModuleDirectory
+                ? Path.Combine("Models", "TvpContracts.g.cs")
+                : Path.Combine("CMIS." + module, "Models", "TvpContracts.g.cs");
+        var defaultNamespace = string.IsNullOrWhiteSpace(module) ? "CMIS.Generated.Tvp" : $"CMIS.{module}.Models";
+        var output = Path.GetFullPath(Option("output", defaultOutput)!);
+        var ns = Option("namespace", defaultNamespace)!;
         var tables = new List<Tvp>();
         try
         {
@@ -207,9 +253,17 @@ internal static class Generator
         CMIS CLI - generate strongly typed C# contracts and DataTable mappers from SQL Server TVPs.
         Usage: cmis generate tvp [--connection-string "<connection string>"] [--schema PIPE] [--type LinesType]
                                  [--namespace CMIS.Generated.Tvp] [--output Generated/TvpContracts.g.cs]
-        In an interactive terminal, omit --type to open the TVP picker. In redirected sessions, omitting --type generates all matching types.
+        Pass a TVP as Schema.Type, or omit it in an interactive terminal to open the picker. In redirected sessions, omitting the type generates all matching types.
         Connection string precedence: --connection-string, CMIS_CODEGEN_CONNECTION_STRING, then the encrypted value saved by 'cmis connection set'.
         """);
+
+    private static string? DetectModuleFromCurrentDirectory()
+    {
+        var directoryName = Path.GetFileName(Environment.CurrentDirectory);
+        return directoryName.StartsWith("CMIS.", StringComparison.OrdinalIgnoreCase)
+            ? directoryName[5..]
+            : null;
+    }
 
     private sealed class Tvp(string schema, string name)
     {
