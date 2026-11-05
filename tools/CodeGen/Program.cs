@@ -48,6 +48,27 @@ internal static class Generator
             return 2;
         }
 
+        if (Option("type") is null && !Console.IsInputRedirected && !Console.IsOutputRedirected)
+        {
+            string? selectedType;
+            try
+            {
+                selectedType = await SqlObjectAutocomplete.SelectTableTypeAsync(cs, Option("schema"));
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Could not load TVP table types ({ex.GetType().Name}). Check the SQL connection and metadata permissions.");
+                return 1;
+            }
+
+            if (string.IsNullOrWhiteSpace(selectedType))
+                return 130;
+
+            var parts = selectedType.Split('.', 2);
+            options["schema"] = parts[0];
+            options["type"] = parts[1];
+        }
+
         var output = Path.GetFullPath(Option("output", "Generated/TvpContracts.g.cs")!);
         var ns = Option("namespace", "CMIS.Generated.Tvp")!;
         var tables = new List<Tvp>();
